@@ -191,14 +191,6 @@ def chat(request: ChatRequest):
         user_message = request.message.strip()
         user_role = normalize_role(request.role)
         office_id = request.office_id
-        
-        # Reject unknown/invalid roles
-        if user_role == "unknown":
-            return {
-                "type": "text",
-                "message": "Invalid role specified. Please use a valid role: principal, admin, exam_staff, hostel_warden, attendance_staff, hr_staff, or training_staff.",
-            }
-        
         intent = detect_intent(user_message)
 
         if intent == "text":
@@ -222,6 +214,24 @@ def chat(request: ChatRequest):
                         "message": "You do not have permission to access exam data.",
                     }
 
+                # DETECT: Schedule/time queries - use vector search, NOT name lookup
+                msg_lower = user_message.lower()
+                schedule_keywords = ["schedule", "next week", "upcoming", "when", "date", "time", "exam date", "timetable"]
+                if any(kw in msg_lower for kw in schedule_keywords):
+                    vector = get_embedding(user_message)
+                    results = search_data_filtered(
+                        vector=vector,
+                        office_id=office_id,
+                        user_role=user_role,
+                        module="exam",
+                        limit=10,
+                    )
+                    if results:
+                        context = "\n".join([r.payload.get("text", "") for r in results if r.payload])
+                        answer = generate_answer(question=user_message, context=context)
+                        return {"type": "text", "message": answer}
+                    return {"type": "text", "message": "No exam schedule data found."}
+
                 # Check if user mentioned a specific name (e.g., "highest marks of Ashwini")
                 if has_specific_name(user_message):
                     search_name = extract_search_name(user_message)
@@ -239,11 +249,30 @@ def chat(request: ChatRequest):
                             "type": "text",
                             "message": answer,
                         }
-                    else:
-                        return {
-                            "type": "text",
-                            "message": f"No trainee named '{search_name.title()}' found in office {office_id}.",
-                        }
+                    # Don't return error - fallback to vector search
+
+                # SPECIAL: Average marks calculation
+                if "average" in user_message.lower() and ("mark" in user_message.lower() or "score" in user_message.lower()):
+                    vector = get_embedding("all exam marks")
+                    results = search_data_filtered(
+                        vector=vector,
+                        office_id=office_id,
+                        user_role=user_role,
+                        module="exam",
+                        limit=50,
+                    )
+                    if results:
+                        marks = []
+                        for r in results:
+                            text = r.payload.get("text", "")
+                            # Extract marks from text like "Marks: 85 out of 100"
+                            match = re.search(r'Marks:\s*(\d+)', text)
+                            if match:
+                                marks.append(int(match.group(1)))
+                        if marks:
+                            avg = sum(marks) / len(marks)
+                            return {"type": "text", "message": f"Average marks: {avg:.1f} out of {len(marks)} records"}
+                    return {"type": "text", "message": "No marks data found to calculate average."}
 
                 # Handle aggregate queries (highest, lowest, average, all trainees)
                 if is_aggregate_query(user_message):
@@ -287,27 +316,22 @@ def chat(request: ChatRequest):
                         "message": "I could not find exam data for your query.",
                     }
 
-                # Handle generic trainee name searches
-                search_name = extract_search_name(user_message)
-                marks_rows = get_marks_by_trainee(
-                    search_name=search_name,
+                # Handle generic exam queries - use vector search
+                vector = get_embedding(user_message)
+                results = search_data_filtered(
+                    vector=vector,
                     office_id=office_id,
+                    user_role=user_role,
+                    module="exam",
+                    limit=100,
                 )
 
-                if marks_rows:
-                    answer = generate_answer(
-                        question=user_message,
-                        context=build_exam_context(marks_rows),
-                    )
-                    return {
-                        "type": "text",
-                        "message": answer,
-                    }
-                else:
-                    return {
-                        "type": "text",
-                        "message": f"No trainee named '{search_name.title()}' found in office {office_id}.",
-                    }
+                if results:
+                    context = "\n".join([r.payload.get("text", "") for r in results if r.payload])
+                    answer = generate_answer(question=user_message, context=context)
+                    return {"type": "text", "message": answer}
+                
+                return {"type": "text", "message": "No exam data found for your query."}
 
             if is_hostel_question(user_message):
                 if not has_module_access(user_role, "hostel"):
@@ -316,6 +340,58 @@ def chat(request: ChatRequest):
                         "message": "You do not have permission to access hostel data.",
                     }
 
+                msg_lower = user_message.lower()
+
+                # SPECIAL: How many wards/buildings
+                if any(kw in msg_lower for kw in ["how many ward", "number of ward", "total ward", "count ward"]):
+                    vector = get_embedding("hostel buildings")
+                    results = search_data_filtered(
+                        vector=vector,
+                        office_id=office_id,
+                        user_role=user_role,
+                        module="hostel",
+                        limit=20,
+                    )
+                    if results:
+                        # Count unique buildings
+                        buildings = set()
+                        for r in results:
+                            text = r.payload.get("text", "")
+                            if "HOSTEL BUILDING" in text or "Building:" in text:
+                                # Extract building name
+                                match = re.search(r'Building(?:\s*ID)?:\s*(\d+|\w+)', text)
+                                if match:
+                                    buildings.add(match.group(1))
+                        return {"type": "text", "message": f"Total hostel wards/buildings: {len(buildings)}"}
+                    return {"type": "text", "message": "No building data found."}
+
+                # SPECIAL: Most occupied room
+                if any(kw in msg_lower for kw in ["most occupied", "highest occupancy", "fullest room"]):
+                    vector = get_embedding("hostel rooms occupied beds")
+                    results = search_data_filtered(
+                        vector=vector,
+                        office_id=office_id,
+                        user_role=user_role,
+                        module="hostel",
+                        limit=50,
+                    )
+                    if results:
+                        max_occupied = 0
+                        max_room = None
+                        for r in results:
+                            text = r.payload.get("text", "")
+                            # Look for "Occupied: X" pattern
+                            occ_match = re.search(r'Occupied:\s*(\d+)', text)
+                            room_match = re.search(r'Room Name/Number:\s*(\S+)', text)
+                            if occ_match and room_match:
+                                occ = int(occ_match.group(1))
+                                if occ > max_occupied:
+                                    max_occupied = occ
+                                    max_room = room_match.group(1)
+                        if max_room:
+                            return {"type": "text", "message": f"Most occupied room: {max_room} with {max_occupied} occupants"}
+                    return {"type": "text", "message": "No occupancy data found."}
+
                 # Search specifically in hostel module
                 vector = get_embedding(user_message)
                 results = search_data_filtered(
@@ -323,7 +399,7 @@ def chat(request: ChatRequest):
                     office_id=office_id,
                     user_role=user_role,
                     module="hostel",
-                    limit=10,
+                    limit=20,
                 )
 
                 if results:
@@ -358,7 +434,7 @@ def chat(request: ChatRequest):
                     office_id=office_id,
                     user_role=user_role,
                     module="attendance",
-                    limit=10,
+                    limit=100,
                 )
 
                 if results:
@@ -384,7 +460,7 @@ def chat(request: ChatRequest):
                 vector=vector,
                 office_id=office_id,
                 user_role=user_role,
-                limit=10,
+                limit=100,
             )
 
             if results:
@@ -416,19 +492,11 @@ def chat(request: ChatRequest):
                 "message": "I could not find permitted data for your role.",
             }
 
-        if intent == "dashboard":
-            return {
-                "type": "dashboard",
-                "message": "Dashboard request detected",
-                "embed_url": None,
-            }
-
-        if intent == "chart":
-            return {
-                "type": "chart",
-                "message": "Chart request detected",
-                "embed_url": None,
-            }
+        # CHART AND DASHBOARD DISABLED - forcing text responses
+        # if intent == "dashboard":
+        #     return {"type": "dashboard", "message": "Dashboard request detected"}
+        # if intent == "chart":
+        #     return {"type": "chart", "message": "Chart request detected"}
 
         return {
             "type": "text",
