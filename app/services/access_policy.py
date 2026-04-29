@@ -6,6 +6,7 @@ ROLE_MODULE_ACCESS = {
     "attendance_staff": {"attendance"},
     "hr_staff": {"trainee", "trainee_leave"},
     "training_staff": {"course_nominee", "trainee"},
+    "unknown": set(),  # No access for invalid/unknown roles
 }
 
 IMPLEMENTED_MODULES = {"exam", "hostel", "attendance", "trainee", "trainee_leave", "course_nominee"}
@@ -15,7 +16,15 @@ ALL_KNOWN_ROLES = set(ROLE_MODULE_ACCESS.keys())
 
 def normalize_role(role: str) -> str:
     normalized = (role or "").strip().lower()
-    return normalized if normalized in ALL_KNOWN_ROLES else "principal"
+    return normalized if normalized in ALL_KNOWN_ROLES else "unknown"
+
+
+def get_role_or_default(role: str) -> str:
+    """Get role with fallback to principal only for explicitly empty/missing roles"""
+    normalized = (role or "").strip().lower()
+    if not normalized:
+        return "principal"  # Default only for empty/missing
+    return normalized if normalized in ALL_KNOWN_ROLES else "unknown"
 
 
 def allowed_modules_for_role(role: str) -> list[str]:

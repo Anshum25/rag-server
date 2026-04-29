@@ -191,6 +191,14 @@ def chat(request: ChatRequest):
         user_message = request.message.strip()
         user_role = normalize_role(request.role)
         office_id = request.office_id
+        
+        # Reject unknown/invalid roles
+        if user_role == "unknown":
+            return {
+                "type": "text",
+                "message": "Invalid role specified. Please use a valid role: principal, admin, exam_staff, hostel_warden, attendance_staff, hr_staff, or training_staff.",
+            }
+        
         intent = detect_intent(user_message)
 
         if intent == "text":
