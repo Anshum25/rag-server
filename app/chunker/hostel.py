@@ -12,7 +12,7 @@ def get_hostel_chunks():
         cursor = conn.cursor()
 
         # 1. hostel_buildings - all buildings
-        cursor.execute("SELECT * FROM hostel_buildings WHERE office_id = 2")
+        cursor.execute("SELECT * FROM hostel_buildings WHERE office_id = 1")
         buildings = cursor.fetchall()
         for row in buildings:
             text = f"""HOSTEL BUILDING
@@ -27,7 +27,7 @@ Status: {row.get('status') or 'Active'}"""
                 "text": text,
                 "building_name": row.get('building_name', '').lower(),
                 "building_id": str(row.get('id')),
-                "office_id": 2,
+                "office_id": 1,
                 "module": "hostel",
                 "allowed_roles": ["principal", "admin", "hostel_staff", "hostel_warden"]
             })
@@ -39,7 +39,7 @@ Status: {row.get('status') or 'Active'}"""
                 hb.building_name
             FROM hostel_rooms hr
             LEFT JOIN hostel_buildings hb ON hr.building_id = hb.id
-            WHERE hr.office_id = 2 OR hb.office_id = 2
+            WHERE hr.office_id = 1 OR hb.office_id = 1
         """)
         rooms = cursor.fetchall()
         for row in rooms:
@@ -71,7 +71,7 @@ Office ID: {row.get('office_id')}"""
                 "room_name": str(row.get('room_name', '')).lower(),
                 "building_name": building.lower(),
                 "room_type": room_type.lower(),
-                "office_id": 2,
+                "office_id": 1,
                 "module": "hostel",
                 "allowed_roles": ["principal", "admin", "hostel_staff", "hostel_warden"]
             })
@@ -89,7 +89,7 @@ Office ID: {row.get('office_id')}"""
             LEFT JOIN users u ON hm.user_id = u.id
             LEFT JOIN hostel_buildings hb ON hm.building_id = hb.id
             LEFT JOIN hostel_rooms hr ON hm.room_id = hr.id
-            WHERE hm.office_id = 2 AND hm.user_id IS NOT NULL
+            WHERE hm.office_id = 1 AND hm.user_id IS NOT NULL
         """)
         allocations = cursor.fetchall()
         for row in allocations:
@@ -116,7 +116,7 @@ Allocation ID: {row.get('id')}"""
                 "trainee_name": name.lower(),
                 "room_name": room.lower(),
                 "building_name": building.lower(),
-                "office_id": 2,
+                "office_id": 1,
                 "module": "hostel",
                 "allowed_roles": ["principal", "admin", "hostel_staff", "hostel_warden"]
             })
@@ -131,7 +131,7 @@ Allocation ID: {row.get('id')}"""
                 FROM hostel_complaint hc
                 LEFT JOIN users u ON hc.user_id = u.id
                 LEFT JOIN hostel_buildings hb ON hc.building_id = hb.id
-                WHERE hc.office_id = 2
+                WHERE hc.office_id = 1
             """)
             complaints = cursor.fetchall()
             for row in complaints:
@@ -154,7 +154,7 @@ Office ID: {row.get('office_id')}"""
                     "text": text,
                     "trainee_name": name.lower(),
                     "building_name": building.lower(),
-                    "office_id": 2,
+                    "office_id": 1,
                     "module": "hostel",
                     "allowed_roles": ["principal", "admin", "hostel_staff", "hostel_warden"]
                 })
@@ -162,19 +162,23 @@ Office ID: {row.get('office_id')}"""
             logger.warning(f"hostel_complaint table error: {e}")
 
         # Summary statistics
-        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_buildings WHERE office_id = 2")
+        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_buildings WHERE office_id = 1")
         building_count = cursor.fetchone().get('cnt', 0)
 
-        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_rooms WHERE office_id = 2")
+        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_rooms WHERE office_id = 1")
         room_count = cursor.fetchone().get('cnt', 0)
 
-        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_masters WHERE office_id = 2 AND user_id IS NOT NULL")
+        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_masters WHERE office_id = 1 AND user_id IS NOT NULL")
         allocation_count = cursor.fetchone().get('cnt', 0)
 
-        cursor.execute("SELECT COUNT(*) as cnt FROM hostel_complaint WHERE office_id = 2")
-        complaint_count = cursor.fetchone().get('cnt', 0)
+        # Handle missing hostel_complaint table gracefully
+        try:
+            cursor.execute("SELECT COUNT(*) as cnt FROM hostel_complaint WHERE office_id = 1")
+            complaint_count = cursor.fetchone().get('cnt', 0)
+        except Exception:
+            complaint_count = 0
 
-        summary = f"""HOSTEL MODULE SUMMARY - Office 2
+        summary = f"""HOSTEL MODULE SUMMARY - Office 1
 Total Buildings: {building_count}
 Total Rooms: {room_count}
 Total Active Allocations: {allocation_count}
@@ -184,7 +188,7 @@ All hostel data is now available including buildings, rooms, allocations, and co
 
         chunks.append({
             "text": summary,
-            "office_id": 2,
+            "office_id": 1,
             "module": "hostel",
             "allowed_roles": ["principal", "admin", "hostel_staff", "hostel_warden"],
             "trainee_name": "",
