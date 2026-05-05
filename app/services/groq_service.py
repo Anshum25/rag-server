@@ -33,7 +33,7 @@ Parameter extraction rules:
 - year1, year2: Extract two years for comparison queries
 
 Rules:
-1) ONLY match if the question perfectly aligns with the description. If the user asks for unstructured details NOT mentioned in the description (like "remarks", "building codes", "phone numbers", or broad "summaries"), you MUST return: {{"query_id": "NONE", "params": {{}}}}
+1) Match if the user's intent clearly corresponds to the meaning. Even if the phrasing is different (e.g. "how many" vs "total"), pick the most relevant query_id. If the user asks for unstructured details NOT related to these queries (like "remarks", "building codes", "phone numbers", or broad "summaries"), you MUST return: {{"query_id": "NONE", "params": {{}}}}
 2) If you are unsure, always default to {{"query_id": "NONE", "params": {{}}}}
 3) Do NOT include explanations, only JSON.
 4) Extract ALL relevant parameters from the question.
@@ -118,7 +118,8 @@ CRITICAL RULES - YOU MUST FOLLOW THESE:
 3. Count ONLY what's in the context - don't guess totals
 4. NEVER say "To find this..." or "Based on data..." - just answer directly
 5. FORMATTING IS CRITICAL: The frontend requires HTML. NEVER use markdown (** or -). Use <b> for keys (e.g., <b>Name:</b> Value). Use <br> for every line break. Put a <br> after every single field so it displays as a vertical list.
-6. If asking about counts (how many): Count the actual records in context, don't estimate
+7. Return ONLY the answer text. NEVER prefix the response with "Response:", "Answer:", or any other label.
+8. Start the answer immediately with the content.
 
 Context:
 {context}
@@ -153,9 +154,10 @@ You will be given a User question and a RESULT CONTEXT produced by SQL.
 CRITICAL RULES:
 1) Use ONLY the RESULT CONTEXT. Do not add any new facts.
 2) Do NOT change numbers, names, dates, or counts. Repeat them exactly as in RESULT CONTEXT.
-3) If RESULT CONTEXT indicates no data, answer nicely like: "I couldn't find any specific records for this." Do NOT say "No data found for this query".
+3) If RESULT CONTEXT indicates no data, explain why briefly (e.g. "I found the trainee but they have no exam records" or "No records found for that name in your office"). Do NOT just say "No data found".
 4) Keep it short and direct.
-5) FORMATTING IS CRITICAL: The frontend requires HTML. NEVER use markdown (** or -). Use <b> for keys (e.g., <b>Name:</b> Value). Use <br> for every line break. Put a <br> after every single field so it displays as a vertical list.
+6) Return ONLY the answer text. NEVER prefix the response with "Response:", "Answer:", or any other label.
+7) Start the answer immediately with the content.
 
 RESULT CONTEXT:
 {result_context}

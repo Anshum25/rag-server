@@ -8,7 +8,7 @@ from app.services.access_policy import (
     normalize_role,
 )
 from app.services.groq_service import classify_query, format_answer, generate_answer, refine_question
-from app.services.smart_query_service import QUERY_TEMPLATES, execute_smart_query
+from app.services.smart_query_service import get_relevant_templates, execute_smart_query
 from app.services.embedder import get_embedding
 from app.services.qdrant_service import search_data_filtered
 
@@ -155,7 +155,8 @@ def chat(request: ChatRequest):
         refined = refine_question(user_message)
 
         # Stage 2: Classify query + extract params
-        route = classify_query(refined, allowed_query_ids=QUERY_TEMPLATES)
+        allowed_queries = get_relevant_templates(refined)
+        route = classify_query(refined, allowed_query_ids=allowed_queries)
         qid = route.get("query_id")
         params = route.get("params") or {}
 
