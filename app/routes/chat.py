@@ -171,6 +171,22 @@ def chat(request: ChatRequest):
                     return _respond(qdrant_answer)
                 return _respond(generate_answer(user_message, ""))
 
+        # --- Direct trainee selection handler (bypass AI) ---
+        # If the previous answer was a TRAINEE_SELECT prompt and user clicked a name with ID
+        if history:
+            import re
+            last_answer_raw = history[-1].get("answer", "")
+            if "please select one" in last_answer_raw.lower():
+                # Try to extract trainee_id from the user's message (e.g. "Mayank Sharma (ID: 4197)" or just "4197")
+                id_match = re.search(r'\b(\d+)\b', user_message)
+                if id_match:
+                    trainee_id = int(id_match.group(1))
+                    result = execute_smart_query("MARKS_OF_ONE_TRAINEE", {"trainee_id": trainee_id}, office_id)
+                    if result and not result.startswith("Error"):
+                        formatted = format_answer(f"exam marks for trainee ID {trainee_id}", result)
+                        return _respond(formatted)
+
+
         # --- Data question: 3-stage LLM pipeline ---
 
         # Access control check BEFORE calling LLM
