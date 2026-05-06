@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from collections import deque
 
 from app.services.access_policy import (
     describe_access,
@@ -13,6 +14,10 @@ from app.services.embedder import get_embedding
 from app.services.qdrant_service import search_data_filtered
 
 router = APIRouter()
+
+# Conversation history store: keyed by office_id, stores last 2 exchanges
+# Each exchange = {"question": str, "answer": str}
+conversation_history: dict[int, deque] = {}
 
 # Keywords to detect data questions (exam, hostel, trainee topics)
 DATA_KEYWORDS = {
@@ -129,20 +134,42 @@ def chat(request: ChatRequest):
         user_role = normalize_role(request.role)
         office_id = request.office_id
 
+        # Get or create conversation history for this office
+        if office_id not in conversation_history:
+            conversation_history[office_id] = deque(maxlen=2)
+        history = list(conversation_history[office_id])
+
+        # Helper to store exchange and return response
+        def _respond(answer_text: str) -> dict:
+            conversation_history[office_id].append({
+                "question": user_message,
+                "answer": answer_text
+            })
+            return {"type": "text", "message": _format_to_html(answer_text)}
+
         # --- Access questions (role/permission queries) ---
         if _is_access_question(user_message):
             lowered = user_message.lower()
             if "not access" in lowered or "cannot access" in lowered or "can't access" in lowered:
-                return {"type": "text", "message": describe_restricted_access(user_role)}
-            return {"type": "text", "message": describe_access(user_role)}
+                return _respond(describe_restricted_access(user_role))
+            return _respond(describe_access(user_role))
 
         # --- General / greeting questions (no data needed) ---
         if not _is_data_question(user_message):
-            # Still try Qdrant — user may be asking about a person/entity by name
-            qdrant_answer = _qdrant_fallback(user_message, office_id, user_role)
-            if qdrant_answer:
-                return {"type": "text", "message": _format_to_html(qdrant_answer)}
-            return {"type": "text", "message": _format_to_html(generate_answer(user_message, ""))}
+            # Check if this might be a follow-up answer (e.g. user just typed "Transportation")
+            # If history exists and last answer was a follow-up question, treat as data question
+            is_followup = False
+            if history:
+                last_answer = history[-1].get("answer", "").lower()
+                followup_signals = ["which course", "which exam", "please specify", "please provide", "which trainee", "can you provide", "please select", "select one"]
+                if any(sig in last_answer for sig in followup_signals):
+                    is_followup = True
+            
+            if not is_followup:
+                qdrant_answer = _qdrant_fallback(user_message, office_id, user_role)
+                if qdrant_answer:
+                    return _respond(qdrant_answer)
+                return _respond(generate_answer(user_message, ""))
 
         # --- Data question: 3-stage LLM pipeline ---
 
@@ -154,9 +181,9 @@ def chat(request: ChatRequest):
         # Stage 1: Refine question (spell correct + clarify)
         refined = refine_question(user_message)
 
-        # Stage 2: Classify query + extract params
+        # Stage 2: Classify query + extract params (with conversation history)
         allowed_queries = get_relevant_templates(refined)
-        route = classify_query(refined, allowed_query_ids=allowed_queries)
+        route = classify_query(refined, allowed_query_ids=allowed_queries, history=history)
         qid = route.get("query_id")
         params = route.get("params") or {}
 
@@ -165,6 +192,11 @@ def chat(request: ChatRequest):
             result = execute_smart_query(qid, params, office_id)
 
             if result and not result.startswith("Error"):
+                # Check if the result is a trainee selection prompt (multiple matches)
+                if result.startswith("TRAINEE_SELECT\n"):
+                    trainee_text = result.replace("TRAINEE_SELECT\n", "")
+                    return _respond(trainee_text)
+
                 # Stage 3: LLM formats the answer
                 formatted = format_answer(refined, result)
 
@@ -172,17 +204,17 @@ def chat(request: ChatRequest):
                 if qid in ("HOSTEL_TRAINEE_DETAILS", "HOSTEL_SEARCH_TRAINEE_BY_NAME") and len(formatted) <= 80:
                     qdrant_answer = _qdrant_fallback(refined, office_id, user_role)
                     if qdrant_answer and len(qdrant_answer) > len(formatted):
-                        return {"type": "text", "message": _format_to_html(qdrant_answer)}
+                        return _respond(qdrant_answer)
                 
-                return {"type": "text", "message": _format_to_html(formatted)}
+                return _respond(formatted)
 
         # --- Fallback: Vector search (Qdrant) ---
         qdrant_answer = _qdrant_fallback(refined, office_id, user_role)
         if qdrant_answer:
-            return {"type": "text", "message": _format_to_html(qdrant_answer)}
+            return _respond(qdrant_answer)
 
         # --- Final fallback: LLM with no context ---
-        return {"type": "text", "message": _format_to_html(generate_answer(refined, ""))}
+        return _respond(generate_answer(refined, ""))
 
     except HTTPException as exc:
         return {"type": "text", "message": f"Error: {exc.detail if hasattr(exc, 'detail') else str(exc)}"}

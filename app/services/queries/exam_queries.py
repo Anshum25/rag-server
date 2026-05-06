@@ -1,19 +1,18 @@
 """Exam, Re-exam, and Principal-level query handlers."""
 
 TEMPLATES = [
-    {"id": "TOTAL_EXAM_SCHEDULES", "description": "how many exams / total exam schedules"},
+    {"id": "TOTAL_EXAM_SCHEDULES", "description": "total exam schedules overall (ONLY use if NO time period is mentioned)"},
     {"id": "TOTAL_SUBJECTS", "description": "exam subjects / total subjects"},
-    {"id": "EXAM_SCHEDULES_LIST", "description": "Exam schedules list. Params: limit, offset"},
-    {"id": "EXAMS_BY_YEAR", "description": "Exams by year. Params: year"},
+    {"id": "EXAM_SCHEDULES_BY_TIME", "description": "Get count AND list of exam schedules. Can filter by time period (e.g., in 2025, this year, between January and December, last 4 months). Params: limit, offset, year, month, start_month, end_month, last_months, last_years"},
     {"id": "UPCOMING_EXAMS", "description": "upcoming exams"},
     {"id": "COMPLETED_EXAMS", "description": "completed exams"},
     
     {"id": "TOTAL_MARKS_RECORDS", "description": "Total marks records"},
-    {"id": "MARKS_OF_ONE_TRAINEE", "description": "marks of trainee / Marks of one trainee. Params: trainee_id"},
+    {"id": "MARKS_OF_ONE_TRAINEE", "description": "marks of trainee / Marks of one trainee. Params: trainee_id or search_name"},
     {"id": "MARKS_OF_TRAINEE_IN_ONE_EXAM", "description": "Marks of trainee in one exam. Params: trainee_id, exam_schedule_id"},
     {"id": "SUBJECT_WISE_AVERAGE_MARKS", "description": "Subject-wise average marks"},
-    {"id": "TOP_PERFORMERS", "description": "top students / Top performers / highest marks. Params: exam_schedule_id (optional), limit"},
-    {"id": "LOWEST_PERFORMERS", "description": "lowest students / Lowest performers / lowest marks. Params: exam_schedule_id (optional), limit"},
+    {"id": "TOP_PERFORMERS", "description": "top students / Top performers / highest marks. Params: course_name or exam_name (e.g. Establishment, Cabinman), course_id (optional), limit"},
+    {"id": "LOWEST_PERFORMERS", "description": "lowest students / Lowest performers / lowest marks. Params: course_name or exam_name (e.g. Establishment, Cabinman), course_id (optional), limit"},
     {"id": "FAILED_TRAINEES", "description": "failed students / Failed trainees in exam. Params: passing_marks, exam_schedule_id (optional)"},
     {"id": "FAILED_TRAINEES_COUNT", "description": "Failed trainees count. Params: passing_marks, exam_schedule_id (optional)"},
     {"id": "PASS_FAIL_SUMMARY", "description": "Pass / fail summary. Params: exam_schedule_id (optional), passing_marks"},
@@ -34,7 +33,7 @@ TEMPLATES = [
     {"id": "MARKS_FOR_TRAINEE_IN_COURSE", "description": "Get marks for a trainee in a specific course. Params: user_id, course_id"},
     {"id": "MARKS_BY_EXAM_TYPE_FOR_COURSE", "description": "Marks by exam type for a course. Params: course_id, exam_type_id"},
     {"id": "SUBJECT_WISE_MARKS_FOR_TRAINEE_IN_COURSE", "description": "Subject-wise marks for a trainee in a course. Params: user_id, course_id"},
-    {"id": "HIGHEST_SCORERS_IN_COURSE", "description": "Highest scorers in a course. Params: course_id (optional), exam_type_id (optional)"},
+    {"id": "HIGHEST_SCORERS_IN_COURSE", "description": "Highest scorers in a course. Params: course_name or exam_name, course_id (optional), exam_type_id (optional)"},
     {"id": "PASS_FAIL_SUMMARY_FOR_COURSE", "description": "Pass/fail summary for a course. Params: course_id"},
     {"id": "ALL_FAILED_TRAINEES_IN_COURSE", "description": "All failed trainees in a course. Params: course_id (optional)"},
     {"id": "DID_TRAINEE_PASS_IN_COURSE", "description": "Did a specific trainee pass in a course? Params: user_id, course_id"},
@@ -52,6 +51,26 @@ TEMPLATES = [
 def execute(query_id, params, cur, office_id):
     p = params or {}
     
+    # Blocklist of generic words that should NEVER be treated as a course/exam name
+    GENERIC_WORDS = {
+        "exam", "exams", "course", "courses", "marks", "mark", "performers",
+        "performer", "top", "highest", "lowest", "best", "worst", "recent",
+        "latest", "schedule", "schedules", "trainee", "trainees", "student",
+        "students", "result", "results", "score", "scores", "all", "total",
+        "overall", "general", "any", "the", "in", "for", "of", "a", "an",
+    }
+    
+    def _clean_course_name(name):
+        """Return None if the name is just generic words, otherwise return the cleaned name."""
+        if not name:
+            return None
+        cleaned = name.strip().lower()
+        # If the entire name consists of only generic/blocked words, discard it
+        words = set(cleaned.split())
+        if words.issubset(GENERIC_WORDS):
+            return None
+        return name.strip()
+    
     # 3. Exam Master Queries
     if query_id == "TOTAL_EXAM_SCHEDULES":
         cur.execute("SELECT COUNT(*) AS total FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s", (office_id,))
@@ -63,21 +82,72 @@ def execute(query_id, params, cur, office_id):
         r = cur.fetchone()
         return f"Total subjects: {r['total_subjects'] if r else 0}"
         
-    elif query_id == "EXAM_SCHEDULES_LIST":
+    elif query_id == "EXAM_SCHEDULES_BY_TIME":
         limit = int(p.get("limit", 20))
         offset = int(p.get("offset", 0))
-        cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s ORDER BY ed.id DESC LIMIT %s OFFSET %s", (office_id, limit, offset))
-        rows = cur.fetchall()
-        if not rows: return "No exam schedules found."
-        lines = [f"- {r.get('subject')} ({r.get('course_name')}): Date {r.get('exam_date')}" for r in rows]
-        return "Exam Schedules:\n" + "\n".join(lines)
         
-    elif query_id == "EXAMS_BY_YEAR":
-        import datetime
-        year = int(p.get("year", datetime.datetime.now().year))
-        cur.execute("SELECT COUNT(*) AS total FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND YEAR(ed.exam_date) = %s", (office_id, year))
+        last_months = p.get("last_months")
+        last_years = p.get("last_years")
+        year = p.get("year")
+        month = p.get("month")
+        start_month = p.get("start_month")
+        end_month = p.get("end_month")
+        
+        base_query = "FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND ed.status = 1"
+        params_db = [office_id]
+        time_str_parts = []
+        
+        if last_months is not None:
+            base_query += " AND ed.exam_date >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)"
+            params_db.append(int(last_months))
+            time_str_parts.append(f"in the last {last_months} months")
+        elif last_years is not None:
+            import datetime
+            target_year = datetime.datetime.now().year - int(last_years)
+            base_query += " AND YEAR(ed.exam_date) = %s"
+            params_db.append(target_year)
+            time_str_parts.append(f"in the last {last_years} year(s) ({target_year})")
+        elif start_month and end_month:
+            base_query += " AND MONTH(ed.exam_date) BETWEEN %s AND %s"
+            params_db.extend([int(start_month), int(end_month)])
+            time_str_parts.append(f"between month {start_month} and {end_month}")
+            if year:
+                base_query += " AND YEAR(ed.exam_date) = %s"
+                params_db.append(int(year))
+                time_str_parts.append(f"of {year}")
+        else:
+            if year:
+                base_query += " AND YEAR(ed.exam_date) = %s"
+                params_db.append(int(year))
+                time_str_parts.append(f"in {year}")
+            if month:
+                base_query += " AND MONTH(ed.exam_date) = %s"
+                params_db.append(int(month))
+                import datetime
+                try:
+                    month_name = datetime.date(1900, int(month), 1).strftime('%B')
+                    time_str_parts.append(f"month {month_name}")
+                except:
+                    time_str_parts.append(f"month {month}")
+                
+        time_str = " ".join(time_str_parts) if time_str_parts else "overall"
+
+        count_query = f"SELECT COUNT(*) AS total {base_query}"
+        cur.execute(count_query, tuple(params_db))
         r = cur.fetchone()
-        return f"Total exams in {year}: {r['total'] if r else 0}"
+        total_count = r['total'] if r else 0
+        
+        if total_count == 0:
+            return f"No exam schedules found {time_str}."
+
+        list_query = f"SELECT ed.*, c.course_name {base_query} ORDER BY ed.exam_date DESC LIMIT %s OFFSET %s"
+        params_db.extend([limit, offset])
+        cur.execute(list_query, tuple(params_db))
+        rows = cur.fetchall()
+        
+        lines = [f"- {row.get('subject')} ({row.get('course_name')}): Date {row.get('exam_date')}" for row in rows]
+        
+        return f"Total exam schedules {time_str}: {total_count}\n\nList (showing up to {limit}):\n" + "\n".join(lines)
         
     elif query_id == "UPCOMING_EXAMS":
         cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND ed.exam_date >= CURDATE() ORDER BY ed.exam_date ASC", (office_id,))
@@ -101,7 +171,7 @@ def execute(query_id, params, cur, office_id):
         
     elif query_id == "MARKS_OF_ONE_TRAINEE":
         uid = p.get("trainee_id") or p.get("user_id")
-        name = p.get("search_name", "")
+        name = p.get("search_name") or p.get("name")
         if not uid and not name: return "Please specify a trainee_id, user_id, or name."
         
         # Clean up name (remove quotes, extra spaces)
@@ -109,24 +179,44 @@ def execute(query_id, params, cur, office_id):
             import re
             name = re.sub(r'[^a-zA-Z0-9\s]', '', name).strip()
         
-        where_clause = "em.user_id = %s" if uid else "LOWER(u.name) LIKE LOWER(%s)"
-        val = uid if uid else f"%{name}%"
+        # If no trainee_id, first search for matching users by name
+        if not uid:
+            cur.execute(
+                "SELECT id, name FROM users WHERE LOWER(name) LIKE LOWER(%s) AND office_id = %s LIMIT 20",
+                (f"%{name}%", office_id)
+            )
+            matches = cur.fetchall()
+            if not matches:
+                return f"No trainee found with name '{name}' in your office."
+            if len(matches) == 1:
+                uid = matches[0]['id']
+            else:
+                # Multiple matches — return list for user to pick
+                lines = [f"- {m['name']} (ID: {m['id']})" for m in matches]
+                return f"TRAINEE_SELECT\nMultiple trainees found matching '{name}'. Please select one:\n" + "\n".join(lines)
         
-        cur.execute(f"""
+        # Fetch marks for the specific trainee using exam_marks
+        cur.execute("""
             SELECT s.subject_name, em.mark_obtained, s.total_mark, tc.course_batch, u.name AS trainee_name
             FROM exam_marks em
             JOIN subjects s ON s.id = em.subject_id
             JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
             JOIN users u ON u.id = em.user_id
-            WHERE {where_clause} AND u.office_id = %s
+            WHERE em.user_id = %s AND c.office_id = %s
             ORDER BY tc.from_date DESC
-        """, (val, office_id))
+        """, (uid, office_id))
         rows = cur.fetchall()
-        if not rows: return f"DEBUG: No marks found for val='{val}' in office_id={office_id}. (Name cleaned to '{name}')"
+        if not rows:
+            # Get the trainee name even if no marks
+            cur.execute("SELECT name FROM users WHERE id = %s", (uid,))
+            user_row = cur.fetchone()
+            trainee_display = user_row['name'] if user_row else uid
+            return f"{trainee_display} (ID: {uid}) has not appeared in any exam yet."
         
-        trainee_display = rows[0]['trainee_name'] if rows else (uid or name)
-        lines = [f"- {r['subject_name']} ({r['course_batch']}): {r['mark_obtained']}/{r['total_mark']}" for r in rows]
-        return f"Marks for {trainee_display}:\n" + "\n".join(lines)
+        trainee_display = rows[0]['trainee_name']
+        lines = [f"- {r['subject_name']} ({r['course_batch']}): {r['mark_obtained'] if r['mark_obtained'] is not None else 'N/A'}/{r['total_mark']}" for r in rows]
+        return f"Marks for {trainee_display} (ID: {uid}):\n" + "\n".join(lines)
         
     elif query_id == "MARKS_OF_TRAINEE_IN_ONE_EXAM":
         uid = p.get("trainee_id") or p.get("user_id")
@@ -161,51 +251,105 @@ def execute(query_id, params, cur, office_id):
         
     elif query_id == "TOP_PERFORMERS":
         cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
         limit = int(p.get("limit", 10))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
-            cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
+            cur.execute(
+                """SELECT tc.id FROM training_calendars tc 
+                   WHERE tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""", 
+                (office_id,)
+            )
             row = cur.fetchone()
-            if not row: return "No courses available."
+            if not row: return "No exam marks data available yet."
             cid = row['id']
         cur.execute("""
-            SELECT u.name, SUM(em.mark_obtained) AS total_marks, SUM(s.total_mark) AS max_marks
+            SELECT u.name, SUM(em.mark_obtained) AS total_marks, SUM(s.total_mark) AS max_marks, c.course_name, tc.course_batch
             FROM exam_marks em
             JOIN users u ON u.id = em.user_id
             JOIN subjects s ON s.id = em.subject_id
             JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
             WHERE em.course_id = %s AND tc.office_id = %s
-            GROUP BY em.user_id
+            GROUP BY em.user_id, c.course_name, tc.course_batch
             ORDER BY total_marks DESC
             LIMIT %s
         """, (cid, office_id, limit))
         rows = cur.fetchall()
         if not rows: return f"No performers found for course {cid}."
+        
+        display_name = f"{rows[0]['course_name']} ({rows[0]['course_batch']})"
         lines = [f"- {r['name']}: {r['total_marks']}/{r['max_marks']}" for r in rows]
-        return f"Top Performers in Course {cid}:\n" + "\n".join(lines)
+        return f"Top Performers in {display_name}:\n" + "\n".join(lines)
         
     elif query_id == "LOWEST_PERFORMERS":
         cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
         limit = int(p.get("limit", 10))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
-            cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
+            cur.execute(
+                """SELECT tc.id FROM training_calendars tc 
+                   WHERE tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""", 
+                (office_id,)
+            )
             row = cur.fetchone()
-            if not row: return "No courses available."
+            if not row: return "No exam marks data available yet."
             cid = row['id']
         cur.execute("""
-            SELECT u.name, SUM(em.mark_obtained) AS total_marks, SUM(s.total_mark) AS max_marks
+            SELECT u.name, SUM(em.mark_obtained) AS total_marks, SUM(s.total_mark) AS max_marks, c.course_name, tc.course_batch
             FROM exam_marks em
             JOIN users u ON u.id = em.user_id
             JOIN subjects s ON s.id = em.subject_id
             JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
             WHERE em.course_id = %s AND tc.office_id = %s
-            GROUP BY em.user_id
+            GROUP BY em.user_id, c.course_name, tc.course_batch
             ORDER BY total_marks ASC
             LIMIT %s
         """, (cid, office_id, limit))
         rows = cur.fetchall()
         if not rows: return f"No lowest performers found for course {cid}."
+        
+        display_name = f"{rows[0]['course_name']} ({rows[0]['course_batch']})"
         lines = [f"- {r['name']}: {r['total_marks']}/{r['max_marks']}" for r in rows]
-        return f"Lowest Performers in Course {cid}:\n" + "\n".join(lines)
+        return f"Lowest Performers in {display_name}:\n" + "\n".join(lines)
         
     elif query_id == "FAILED_TRAINEES":
         pm = float(p.get("passing_marks", 40))
@@ -401,22 +545,49 @@ def execute(query_id, params, cur, office_id):
 
     elif query_id == "HIGHEST_SCORERS_IN_COURSE":
         cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
         et_id = p.get("exam_type_id")
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
-            cur.execute("SELECT id FROM courses WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
+            cur.execute(
+                """SELECT tc.id FROM training_calendars tc 
+                   WHERE tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""", 
+                (office_id,)
+            )
             row = cur.fetchone()
-            if not row: return "No courses available."
+            if not row: return "No exam marks data available yet."
             cid = row['id']
         if not et_id:
             cur.execute("SELECT id FROM exam_type WHERE office_id = %s ORDER BY id ASC LIMIT 1", (office_id,))
             row = cur.fetchone()
             if not row: return "No exam types available."
             et_id = row['id']
-        cur.execute("SELECT u.name, u.user_code, u.designation, em.mark_obtained, em.total_mark, ROUND(em.mark_obtained * 100.0 / NULLIF(em.total_mark,0), 1) AS percentage FROM exam_marks em JOIN users u ON u.id = em.user_id WHERE em.course_id = %s AND em.exam_type_id = %s AND em.status = 1 ORDER BY CAST(em.mark_obtained AS UNSIGNED) DESC LIMIT 10", (cid, et_id))
+        cur.execute("SELECT u.name, u.user_code, u.designation, em.mark_obtained, em.total_mark, ROUND(em.mark_obtained * 100.0 / NULLIF(em.total_mark,0), 1) AS percentage, c.course_name, tc.course_batch, et.title AS exam_type_name FROM exam_marks em JOIN users u ON u.id = em.user_id JOIN training_calendars tc ON tc.id = em.course_id JOIN courses c ON c.id = tc.ct_id JOIN exam_type et ON et.id = em.exam_type_id WHERE em.course_id = %s AND em.exam_type_id = %s AND em.status = 1 ORDER BY CAST(em.mark_obtained AS UNSIGNED) DESC LIMIT 10", (cid, et_id))
         rows = cur.fetchall()
         if not rows: return f"No highest scorers found for course {cid} and exam type {et_id}."
+        
+        display_name = f"{rows[0]['course_name']} ({rows[0]['course_batch']})"
+        et_name = rows[0]['exam_type_name']
         lines = [f"- {r.get('name')}: {r.get('mark_obtained')}/{r.get('total_mark')} ({r.get('percentage')}%)" for r in rows]
-        return f"Top Scorers for Course {cid}, Exam Type {et_id}:\n" + "\n".join(lines)
+        return f"Top Scorers for {display_name}, Exam Type: {et_name}:\n" + "\n".join(lines)
 
     elif query_id == "PASS_FAIL_SUMMARY_FOR_COURSE":
         cid = p.get("course_id")
