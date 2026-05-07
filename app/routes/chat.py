@@ -118,6 +118,9 @@ def _qdrant_fallback(question: str, office_id: int, user_role: str) -> str | Non
 def _format_to_html(text: str) -> str:
     """Enforces HTML formatting for the frontend."""
     import re
+    # If text already contains HTML table, preserve it as-is
+    if '<table' in text.lower():
+        return text
     # Convert markdown bold to HTML bold
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
     # Convert markdown newlines/bullets to HTML breaks
@@ -172,17 +175,31 @@ def chat(request: ChatRequest):
                 return _respond(generate_answer(user_message, ""))
 
         # --- Direct trainee selection handler (bypass AI) ---
-        # If the previous answer was a TRAINEE_SELECT prompt and user clicked a name with ID
+        # If the previous answer was a TRAINEE_SELECT prompt and user clicked a name with Code
         if history:
             import re
             last_answer_raw = history[-1].get("answer", "")
             if "please select one" in last_answer_raw.lower():
-                # Try to extract trainee_id from the user's message (e.g. "Mayank Sharma (ID: 4197)" or just "4197")
+                # Try to extract user_code first (e.g. "Alpa Mayank Talati (Code: U00939)" or just "U00939")
+                code_match = re.search(r'\b([A-Z]\d{3,})\b', user_message.upper())
+                if code_match:
+                    user_code = code_match.group(1)
+                    result = execute_smart_query("MARKS_OF_ONE_TRAINEE", {"user_code": user_code}, office_id)
+                    if result and not result.startswith("Error"):
+                        # If result contains HTML table, bypass format_answer to preserve it
+                        if result.strip().startswith("<") and "<table" in result.lower():
+                            return _respond(result)
+                        formatted = format_answer(f"exam marks for trainee code {user_code}", result)
+                        return _respond(formatted)
+                # Fallback: try to extract numeric trainee_id
                 id_match = re.search(r'\b(\d+)\b', user_message)
                 if id_match:
                     trainee_id = int(id_match.group(1))
                     result = execute_smart_query("MARKS_OF_ONE_TRAINEE", {"trainee_id": trainee_id}, office_id)
                     if result and not result.startswith("Error"):
+                        # If result contains HTML table, bypass format_answer to preserve it
+                        if result.strip().startswith("<") and "<table" in result.lower():
+                            return _respond(result)
                         formatted = format_answer(f"exam marks for trainee ID {trainee_id}", result)
                         return _respond(formatted)
 
@@ -212,6 +229,10 @@ def chat(request: ChatRequest):
                 if result.startswith("TRAINEE_SELECT\n"):
                     trainee_text = result.replace("TRAINEE_SELECT\n", "")
                     return _respond(trainee_text)
+
+                # If result already contains HTML (like tables), skip LLM formatting to preserve it
+                if result.strip().startswith("<") and "<table" in result.lower():
+                    return _respond(result)
 
                 # Stage 3: LLM formats the answer
                 formatted = format_answer(refined, result)

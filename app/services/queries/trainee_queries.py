@@ -5,7 +5,7 @@ import datetime
 TEMPLATES = [
     {"id": "TOTAL_TRAINEES", "description": "total trainees / how many trainees"},
     {"id": "ACTIVE_TRAINEES", "description": "active trainees"},
-    {"id": "APPROVED_TRAINEES", "description": "approved trainees"},
+    {"id": "APPROVED_TRAINEES", "description": "approved trainees"},                
     {"id": "TRAINEE_LIST", "description": "Trainee list. Params: limit, offset"},
     {"id": "SEARCH_TRAINEE", "description": "Search trainee by name. Params: trainee_name"},
     {"id": "TRAINEE_PROFILE", "description": "trainee profile / trainee full profile. Params: trainee_id"},
@@ -72,7 +72,16 @@ def execute(query_id, params, cur, office_id):
         return f"Total trainees: {r['total_trainees'] if r else 0}"
 
     elif query_id == "ACTIVE_TRAINEES":
-        cur.execute("SELECT COUNT(*) AS active_trainees FROM tra_masters WHERE office_id = %s AND status = 1", (office_id,))
+        cur.execute("""
+            SELECT COUNT(tm.id) AS active_trainees
+            FROM tra_masters tm 
+            LEFT JOIN training_calendars tc ON tc.id = tm.course_id AND tc.status = 1 
+            WHERE tc.from_date <= CURDATE()
+            AND tc.to_date >= CURDATE() 
+            AND tm.office_id = %s 
+            AND tm.status = 1 
+            AND tm.is_approved = 1
+        """, (office_id,))
         r = cur.fetchone()
         return f"Active trainees: {r['active_trainees'] if r else 0}"
 
@@ -84,19 +93,32 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "TRAINEE_LIST":
         limit = int(p.get("limit", 20))
         offset = int(p.get("offset", 0))
-        cur.execute("SELECT * FROM tra_masters WHERE office_id = %s ORDER BY id DESC LIMIT %s OFFSET %s", (office_id, limit, offset))
+        cur.execute("""
+            SELECT tm.id, u.name, u.user_code 
+            FROM tra_masters tm 
+            JOIN users u ON u.id = tm.user_id 
+            WHERE tm.office_id = %s 
+            ORDER BY tm.id DESC 
+            LIMIT %s OFFSET %s
+        """, (office_id, limit, offset))
         rows = cur.fetchall()
         if not rows: return "No trainees found."
-        lines = [f"- {r.get('trainee_name', 'Unknown')} (ID: {r.get('id')})" for r in rows]
+        lines = [f"- {r.get('name', 'Unknown')} (Code: {r.get('user_code', 'N/A')})" for r in rows]
         return f"Trainees:\n" + "\n".join(lines)
 
     elif query_id == "SEARCH_TRAINEE":
         name = p.get("trainee_name", "")
         if not name: return "Please specify a trainee name."
-        cur.execute("SELECT * FROM tra_masters WHERE office_id = %s AND trainee_name LIKE %s LIMIT 20", (office_id, f"%{name}%"))
+        cur.execute("""
+            SELECT tm.id, u.name, u.user_code, tm.gender 
+            FROM tra_masters tm 
+            JOIN users u ON u.id = tm.user_id 
+            WHERE tm.office_id = %s AND u.name LIKE %s 
+            LIMIT 20
+        """, (office_id, f"%{name}%"))
         rows = cur.fetchall()
         if not rows: return f"No trainee found matching '{name}'."
-        lines = [f"- {r.get('trainee_name')} (ID: {r.get('id')}, Gender: {r.get('gender')})" for r in rows]
+        lines = [f"- {r.get('name', 'Unknown')} (Code: {r.get('user_code', 'N/A')}, Gender: {r.get('gender')})" for r in rows]
         return f"Search Results for '{name}':\n" + "\n".join(lines)
 
     elif query_id == "TRAINEE_PROFILE":

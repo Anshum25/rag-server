@@ -18,7 +18,7 @@ _MODULE_HANDLERS = [exam_queries, hostel_queries, trainee_queries]
 def get_relevant_templates(question: str) -> list:
     """Filter templates based on keywords to avoid exceeding LLM context limits."""
     text = question.lower()
-    exam_words = {"exam", "marks", "mark", "result", "pass", "fail", "score", "grade", "subject", "percentage"}
+    exam_words = {"exam", "marks", "mark", "result", "pass", "fail", "score", "grade", "subject", "percentage", "top", "bottom", "lowest", "highest", "performers"}
     hostel_words = {"hostel", "room", "bed", "building", "warden", "allocation", "checkin", "checkout", "occupancy", "vacant", "complaint", "feedback"}
     trainee_words = {"trainee", "student", "attendance", "present", "absent", "leave", "course", "department", "designation", "calendar", "batch", "nominee", "linen", "field"}
     

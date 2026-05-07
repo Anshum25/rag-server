@@ -1,51 +1,854 @@
 """Exam, Re-exam, and Principal-level query handlers."""
 
 TEMPLATES = [
-    {"id": "TOTAL_EXAM_SCHEDULES", "description": "total exam schedules overall (ONLY use if NO time period is mentioned)"},
-    {"id": "TOTAL_SUBJECTS", "description": "exam subjects / total subjects"},
-    {"id": "EXAM_SCHEDULES_BY_TIME", "description": "Get count AND list of exam schedules. Can filter by time period (e.g., in 2025, this year, between January and December, last 4 months). Params: limit, offset, year, month, start_month, end_month, last_months, last_years"},
-    {"id": "UPCOMING_EXAMS", "description": "upcoming exams"},
-    {"id": "COMPLETED_EXAMS", "description": "completed exams"},
-    
-    {"id": "TOTAL_MARKS_RECORDS", "description": "Total marks records"},
-    {"id": "MARKS_OF_ONE_TRAINEE", "description": "marks of trainee / Marks of one trainee. Params: trainee_id or search_name"},
-    {"id": "MARKS_OF_TRAINEE_IN_ONE_EXAM", "description": "Marks of trainee in one exam. Params: trainee_id, exam_schedule_id"},
-    {"id": "SUBJECT_WISE_AVERAGE_MARKS", "description": "Subject-wise average marks"},
-    {"id": "TOP_PERFORMERS", "description": "top students / Top performers / highest marks. Params: course_name or exam_name (e.g. Establishment, Cabinman), course_id (optional), limit"},
-    {"id": "LOWEST_PERFORMERS", "description": "lowest students / Lowest performers / lowest marks. Params: course_name or exam_name (e.g. Establishment, Cabinman), course_id (optional), limit"},
-    {"id": "FAILED_TRAINEES", "description": "failed students / Failed trainees in exam. Params: passing_marks, exam_schedule_id (optional)"},
-    {"id": "FAILED_TRAINEES_COUNT", "description": "Failed trainees count. Params: passing_marks, exam_schedule_id (optional)"},
-    {"id": "PASS_FAIL_SUMMARY", "description": "Pass / fail summary. Params: exam_schedule_id (optional), passing_marks"},
-    {"id": "PASS_PERCENTAGE", "description": "pass percentage. Params: exam_schedule_id (optional), passing_marks"},
-    
-    {"id": "TOTAL_RE_EXAM_TRAINEES", "description": "Total re-exam trainees"},
-    {"id": "RE_EXAM_TRAINEE_LIST", "description": "re-exam students / Re-exam trainee list"},
-    {"id": "RE_EXAM_COUNT_BY_EXAM", "description": "Re-exam count by exam"},
-    
-    {"id": "TRAINEE_COMPLETE_EXAM_REPORT", "description": "Trainee complete exam report. Params: trainee_id"},
-    {"id": "TRAINEES_WITH_NO_MARKS", "description": "Trainees with no marks"},
-    {"id": "AVERAGE_MARKS_BY_TRAINEE", "description": "Average marks by trainee"},
-    {"id": "WEAK_TRAINEES", "description": "weak trainees / Weak trainees. Params: threshold_marks"},
-    {"id": "ACTIVE_EXAM_TYPES", "description": "List all active exam types / total exam types / how many exam types / total exam type"},
-    {"id": "EXAM_TYPE_DETAILS_BY_ID", "description": "Get exam type details by ID. Params: exam_type_id"},
-    {"id": "ALL_MARKS_FOR_TRAINEE", "description": "Get all marks for a trainee. Params: user_id"},
-    {"id": "ALL_MARKS_FOR_COURSE", "description": "Get all marks for a specific course. Params: course_id"},
-    {"id": "MARKS_FOR_TRAINEE_IN_COURSE", "description": "Get marks for a trainee in a specific course. Params: user_id, course_id"},
-    {"id": "MARKS_BY_EXAM_TYPE_FOR_COURSE", "description": "Marks by exam type for a course. Params: course_id, exam_type_id"},
-    {"id": "SUBJECT_WISE_MARKS_FOR_TRAINEE_IN_COURSE", "description": "Subject-wise marks for a trainee in a course. Params: user_id, course_id"},
-    {"id": "HIGHEST_SCORERS_IN_COURSE", "description": "Highest scorers in a course. Params: course_name or exam_name, course_id (optional), exam_type_id (optional)"},
-    {"id": "PASS_FAIL_SUMMARY_FOR_COURSE", "description": "Pass/fail summary for a course. Params: course_id"},
-    {"id": "ALL_FAILED_TRAINEES_IN_COURSE", "description": "All failed trainees in a course. Params: course_id (optional)"},
-    {"id": "DID_TRAINEE_PASS_IN_COURSE", "description": "Did a specific trainee pass in a course? Params: user_id, course_id"},
-    {"id": "OVERALL_PASS_FAIL_COUNT", "description": "Overall pass/fail count across all courses"},
-    {"id": "TRAINEES_APPEARED_IN_RE_EXAM", "description": "Trainees who appeared in re-exam. Params: course_id"},
-    {"id": "TRAINEES_FAILED_AFTER_RE_EXAM", "description": "Trainees who failed even after re-exam. Params: course_id"},
-    {"id": "EXAM_DESIGN_FOR_COURSE", "description": "Exam design for a course. Params: office_id"},
-    {"id": "MIN_PASS_MARKS_PER_EXAM_TYPE", "description": "Minimum passing marks per exam type. Params: office_id"},
-    {"id": "FEEDBACK_SUBMISSIONS_FOR_COURSE", "description": "Feedback submissions for a course. Params: course_id"},
-    {"id": "FEEDBACK_SUBMITTED_COUNT_FOR_COURSE", "description": "How many trainees submitted feedback for a course? Params: course_id"},
-    {"id": "FEEDBACK_RESPONSES_FOR_QUESTION", "description": "Feedback responses for a question. Params: fq_id, course_id"},
-    {"id": "LIST_ALL_FEEDBACK_QUESTIONS", "description": "List all feedback questions. Params: office_id"}
+    {
+        "id": "TOTAL_EXAM_SCHEDULES",
+        "module": "exam",
+        "description": "total exam schedules overall (ONLY use if NO time period is mentioned)",
+        "example_questions": [
+            "Total exam schedules overall (only use if no time period is mentioned)?",
+            "Show total exam schedules overall (ONLY use if NO time period is mentioned)"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "TOTAL_SUBJECTS",
+        "module": "exam",
+        "description": "exam subjects / total subjects",
+        "example_questions": [
+            "Exam subjects?",
+            "Show exam subjects"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "EXAM_SCHEDULES_BY_TIME",
+        "module": "exam",
+        "description": "Get count AND list of exam schedules. Can filter by time period (e.g., in 2025, this year, between January and December, last 4 months)",
+        "example_questions": [
+            "Get count and list of exam schedules. can filter by time period (e.g., in 2025, this year, between january and december, last 4 months).?",
+            "Show Get count AND list of exam schedules. Can filter by time period (e.g., in 2025, this year, between January and December, last 4 months)."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "limit",
+            "offset",
+            "year",
+            "month",
+            "start_month",
+            "end_month",
+            "last_months",
+            "last_years"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "UPCOMING_EXAMS",
+        "module": "exam",
+        "description": "upcoming exams",
+        "example_questions": [
+            "Upcoming exams?",
+            "Show upcoming exams"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "COMPLETED_EXAMS",
+        "module": "exam",
+        "description": "completed exams",
+        "example_questions": [
+            "Completed exams?",
+            "Show completed exams"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "TOTAL_MARKS_RECORDS",
+        "module": "exam",
+        "description": "Total marks records",
+        "example_questions": [
+            "Total marks records?",
+            "Show Total marks records"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "MARKS_OF_ONE_TRAINEE",
+        "module": "exam",
+        "description": "marks of trainee / Marks of one trainee by name or ID",
+        "example_questions": [
+            "Marks of trainee?",
+            "Show marks of trainee",
+            "marks of mayank",
+            "get marks for trainee John"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "trainee_id",
+            "search_name",
+            "name",
+            "user_code"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "MARKS_OF_TRAINEE_IN_ONE_EXAM",
+        "module": "exam",
+        "description": "Marks of trainee in one exam",
+        "example_questions": [
+            "Marks of trainee in one exam.?",
+            "Show Marks of trainee in one exam."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "trainee_id",
+            "exam_schedule_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "SUBJECT_WISE_AVERAGE_MARKS",
+        "module": "exam",
+        "description": "Subject-wise average marks",
+        "example_questions": [
+            "Subject-wise average marks?",
+            "Show Subject-wise average marks"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "EXAM_TOP_PERFORMERS",
+        "module": "exam",
+        "description": "Top performers / highest marks.",
+        "example_questions": [
+            "Who got highest marks?",
+            "Show top 5 performers",
+            "Top trainees in exam"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "office_id",
+            "course_name",
+            "exam_name",
+            "course_id",
+            "limit"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "ranking",
+        "security_level": "medium"
+    },
+    {
+        "id": "LOWEST_PERFORMERS",
+        "module": "exam",
+        "description": "lowest students / Lowest performers / lowest marks / bottom trainees",
+        "example_questions": [
+            "Lowest students?",
+            "Show lowest students",
+            "bottom 5 trainees",
+            "bottom performers"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_name",
+            "Cabinman",
+            "course_id",
+            "limit"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "ranking",
+        "security_level": "medium"
+    },
+    {
+        "id": "FAILED_TRAINEES",
+        "module": "exam",
+        "description": "failed students / Failed trainees in exam",
+        "example_questions": [
+            "Failed students?",
+            "Show failed students"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "passing_marks",
+            "exam_schedule_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "FAILED_TRAINEES_COUNT",
+        "module": "exam",
+        "description": "Failed trainees count",
+        "example_questions": [
+            "Failed trainees count.?",
+            "Show Failed trainees count."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "passing_marks",
+            "exam_schedule_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "PASS_FAIL_SUMMARY",
+        "module": "exam",
+        "description": "Pass / fail summary",
+        "example_questions": [
+            "Pass?",
+            "Show Pass"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "exam_schedule_id",
+            "passing_marks"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "PASS_PERCENTAGE",
+        "module": "exam",
+        "description": "pass percentage",
+        "example_questions": [
+            "Pass percentage.?",
+            "Show pass percentage."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "exam_schedule_id",
+            "passing_marks"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "TOTAL_RE_EXAM_TRAINEES",
+        "module": "exam",
+        "description": "Total re-exam trainees",
+        "example_questions": [
+            "Total re-exam trainees?",
+            "Show Total re-exam trainees"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "RE_EXAM_TRAINEE_LIST",
+        "module": "exam",
+        "description": "re-exam students / Re-exam trainee list",
+        "example_questions": [
+            "Re-exam students?",
+            "Show re-exam students"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "RE_EXAM_COUNT_BY_EXAM",
+        "module": "exam",
+        "description": "Re-exam count by exam",
+        "example_questions": [
+            "Re-exam count by exam?",
+            "Show Re-exam count by exam"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "TRAINEE_COMPLETE_EXAM_REPORT",
+        "module": "exam",
+        "description": "Trainee complete exam report",
+        "example_questions": [
+            "Trainee complete exam report.?",
+            "Show Trainee complete exam report."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "trainee_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "details",
+        "security_level": "medium"
+    },
+    {
+        "id": "TRAINEES_WITH_NO_MARKS",
+        "module": "exam",
+        "description": "Trainees with no marks",
+        "example_questions": [
+            "Trainees with no marks?",
+            "Show Trainees with no marks"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "AVERAGE_MARKS_BY_TRAINEE",
+        "module": "exam",
+        "description": "Average marks by trainee",
+        "example_questions": [
+            "Average marks by trainee?",
+            "Show Average marks by trainee"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "WEAK_TRAINEES",
+        "module": "exam",
+        "description": "weak trainees / Weak trainees",
+        "example_questions": [
+            "Weak trainees?",
+            "Show weak trainees"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "threshold_marks"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "ACTIVE_EXAM_TYPES",
+        "module": "exam",
+        "description": "List all active exam types / total exam types / how many exam types / total exam type",
+        "example_questions": [
+            "List all active exam types?",
+            "Show List all active exam types"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "EXAM_TYPE_DETAILS_BY_ID",
+        "module": "exam",
+        "description": "Get exam type details by ID",
+        "example_questions": [
+            "Get exam type details by id.?",
+            "Show Get exam type details by ID."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "exam_type_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "details",
+        "security_level": "medium"
+    },
+    {
+        "id": "ALL_MARKS_FOR_TRAINEE",
+        "module": "exam",
+        "description": "Get all marks for a trainee",
+        "example_questions": [
+            "Get all marks for a trainee.?",
+            "Show Get all marks for a trainee."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "user_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "ALL_MARKS_FOR_COURSE",
+        "module": "exam",
+        "description": "Get all marks for a specific course",
+        "example_questions": [
+            "Get all marks for a specific course.?",
+            "Show Get all marks for a specific course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "MARKS_FOR_TRAINEE_IN_COURSE",
+        "module": "exam",
+        "description": "Get marks for a trainee in a specific course",
+        "example_questions": [
+            "Get marks for a trainee in a specific course.?",
+            "Show Get marks for a trainee in a specific course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "user_id",
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "MARKS_BY_EXAM_TYPE_FOR_COURSE",
+        "module": "exam",
+        "description": "Marks by exam type for a course",
+        "example_questions": [
+            "Marks by exam type for a course.?",
+            "Show Marks by exam type for a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id",
+            "exam_type_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "SUBJECT_WISE_MARKS_FOR_TRAINEE_IN_COURSE",
+        "module": "exam",
+        "description": "Subject-wise marks for a trainee in a course",
+        "example_questions": [
+            "Subject-wise marks for a trainee in a course.?",
+            "Show Subject-wise marks for a trainee in a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "user_id",
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "HIGHEST_SCORERS_IN_COURSE",
+        "module": "exam",
+        "description": "Highest scorers in a course",
+        "example_questions": [
+            "Highest scorers in a course.?",
+            "Show Highest scorers in a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_name",
+            "course_id",
+            "exam_type_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "ranking",
+        "security_level": "medium"
+    },
+    {
+        "id": "PASS_FAIL_SUMMARY_FOR_COURSE",
+        "module": "exam",
+        "description": "Pass/fail summary for a course",
+        "example_questions": [
+            "Pass?",
+            "Show Pass"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "ALL_FAILED_TRAINEES_IN_COURSE",
+        "module": "exam",
+        "description": "All failed trainees in a course",
+        "example_questions": [
+            "All failed trainees in a course.?",
+            "Show All failed trainees in a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "DID_TRAINEE_PASS_IN_COURSE",
+        "module": "exam",
+        "description": "Did a specific trainee pass in a course?",
+        "example_questions": [
+            "Did a specific trainee pass in a course??",
+            "Show Did a specific trainee pass in a course?"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "user_id",
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "OVERALL_PASS_FAIL_COUNT",
+        "module": "exam",
+        "description": "Overall pass/fail count across all courses",
+        "example_questions": [
+            "Overall pass?",
+            "Show Overall pass"
+        ],
+        "required_params": [],
+        "optional_params": [],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "count",
+        "security_level": "medium"
+    },
+    {
+        "id": "TRAINEES_APPEARED_IN_RE_EXAM",
+        "module": "exam",
+        "description": "Trainees who appeared in re-exam",
+        "example_questions": [
+            "Trainees who appeared in re-exam.?",
+            "Show Trainees who appeared in re-exam."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "TRAINEES_FAILED_AFTER_RE_EXAM",
+        "module": "exam",
+        "description": "Trainees who failed even after re-exam",
+        "example_questions": [
+            "Trainees who failed even after re-exam.?",
+            "Show Trainees who failed even after re-exam."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "EXAM_DESIGN_FOR_COURSE",
+        "module": "exam",
+        "description": "Exam design for a course",
+        "example_questions": [
+            "Exam design for a course.?",
+            "Show Exam design for a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "office_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "MIN_PASS_MARKS_PER_EXAM_TYPE",
+        "module": "exam",
+        "description": "Minimum passing marks per exam type",
+        "example_questions": [
+            "Minimum passing marks per exam type.?",
+            "Show Minimum passing marks per exam type."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "office_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "FEEDBACK_SUBMISSIONS_FOR_COURSE",
+        "module": "exam",
+        "description": "Feedback submissions for a course",
+        "example_questions": [
+            "Feedback submissions for a course.?",
+            "Show Feedback submissions for a course."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "FEEDBACK_SUBMITTED_COUNT_FOR_COURSE",
+        "module": "exam",
+        "description": "How many trainees submitted feedback for a course?",
+        "example_questions": [
+            "How many trainees submitted feedback for a course??",
+            "Show How many trainees submitted feedback for a course?"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "FEEDBACK_RESPONSES_FOR_QUESTION",
+        "module": "exam",
+        "description": "Feedback responses for a question",
+        "example_questions": [
+            "Feedback responses for a question.?",
+            "Show Feedback responses for a question."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "fq_id",
+            "course_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "LIST_ALL_FEEDBACK_QUESTIONS",
+        "module": "exam",
+        "description": "List all feedback questions",
+        "example_questions": [
+            "List all feedback questions.?",
+            "Show List all feedback questions."
+        ],
+        "required_params": [],
+        "optional_params": [
+            "office_id"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    }
 ]
 
 def execute(query_id, params, cur, office_id):
@@ -172,7 +975,18 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "MARKS_OF_ONE_TRAINEE":
         uid = p.get("trainee_id") or p.get("user_id")
         name = p.get("search_name") or p.get("name")
-        if not uid and not name: return "Please specify a trainee_id, user_id, or name."
+        user_code = p.get("user_code")
+        
+        # If user_code provided, lookup the user ID first
+        if user_code:
+            cur.execute("SELECT id FROM users WHERE user_code = %s AND office_id = %s", (user_code.upper(), office_id))
+            row = cur.fetchone()
+            if row:
+                uid = row['id']
+            else:
+                return f"No trainee found with code '{user_code}' in your office."
+        
+        if not uid and not name: return "Please specify a trainee_id, user_id, name, or user_code."
         
         # Clean up name (remove quotes, extra spaces)
         if name:
@@ -182,41 +996,57 @@ def execute(query_id, params, cur, office_id):
         # If no trainee_id, first search for matching users by name
         if not uid:
             cur.execute(
-                "SELECT id, name FROM users WHERE LOWER(name) LIKE LOWER(%s) AND office_id = %s LIMIT 20",
+                "SELECT id, name, user_code FROM users WHERE LOWER(name) LIKE LOWER(%s) AND office_id = %s LIMIT 20",
                 (f"%{name}%", office_id)
             )
             matches = cur.fetchall()
+            import logging
+            logging.info(f"[MARKS_OF_ONE_TRAINEE] Searching for name='{name}', office_id={office_id}, found {len(matches)} matches: {matches}")
             if not matches:
                 return f"No trainee found with name '{name}' in your office."
             if len(matches) == 1:
                 uid = matches[0]['id']
             else:
                 # Multiple matches — return list for user to pick
-                lines = [f"- {m['name']} (ID: {m['id']})" for m in matches]
+                lines = [f"- {m['name']} (Code: {m.get('user_code', 'N/A')})" for m in matches]
                 return f"TRAINEE_SELECT\nMultiple trainees found matching '{name}'. Please select one:\n" + "\n".join(lines)
         
         # Fetch marks for the specific trainee using exam_marks
         cur.execute("""
-            SELECT s.subject_name, em.mark_obtained, s.total_mark, tc.course_batch, u.name AS trainee_name
+            SELECT s.subject_name, em.mark_obtained, s.total_mark, c.course_name, u.name AS trainee_name, u.user_code
             FROM exam_marks em
             JOIN subjects s ON s.id = em.subject_id
-            JOIN training_calendars tc ON tc.id = em.course_id
-            JOIN courses c ON c.id = tc.ct_id
+            JOIN courses c ON c.id = em.course_id
             JOIN users u ON u.id = em.user_id
             WHERE em.user_id = %s AND c.office_id = %s
-            ORDER BY tc.from_date DESC
+            ORDER BY em.id DESC
         """, (uid, office_id))
         rows = cur.fetchall()
         if not rows:
-            # Get the trainee name even if no marks
-            cur.execute("SELECT name FROM users WHERE id = %s", (uid,))
+            # Get the trainee name and code even if no marks
+            cur.execute("SELECT name, user_code FROM users WHERE id = %s", (uid,))
             user_row = cur.fetchone()
             trainee_display = user_row['name'] if user_row else uid
-            return f"{trainee_display} (ID: {uid}) has not appeared in any exam yet."
+            user_code_display = user_row['user_code'] if user_row and user_row['user_code'] else 'N/A'
+            return f"{trainee_display} (Code: {user_code_display}) has not appeared in any exam yet."
         
         trainee_display = rows[0]['trainee_name']
-        lines = [f"- {r['subject_name']} ({r['course_batch']}): {r['mark_obtained'] if r['mark_obtained'] is not None else 'N/A'}/{r['total_mark']}" for r in rows]
-        return f"Marks for {trainee_display} (ID: {uid}):\n" + "\n".join(lines)
+        user_code_display = rows[0]['user_code'] if rows[0].get('user_code') else 'N/A'
+        
+        # Build card-based layout for better display in narrow chat
+        cards = []
+        for r in rows:
+            mark = r['mark_obtained'] if r['mark_obtained'] is not None else 'N/A'
+            cards.append(f"""
+<div style="background: #2d3748; border-radius: 8px; padding: 12px; margin: 8px 0; color: white;">
+    <div style="font-weight: bold; font-size: 15px; margin-bottom: 6px;">{r['subject_name']}</div>
+    <div style="font-size: 13px; color: #a0aec0; margin-bottom: 4px;">{r['course_name']}</div>
+    <div style="font-size: 16px; font-weight: bold; color: #68d391;">{mark}/{r['total_mark']}</div>
+</div>""")
+        
+        result_html = f"""<b>Marks for {trainee_display} (Code: {user_code_display}):</b><br>
+{''.join(cards)}"""
+        return result_html
         
     elif query_id == "MARKS_OF_TRAINEE_IN_ONE_EXAM":
         uid = p.get("trainee_id") or p.get("user_id")
@@ -249,7 +1079,7 @@ def execute(query_id, params, cur, office_id):
         lines = [f"- {r['subject_name']}: Avg {round(r['avg_marks'], 2)} / {r['total_mark']}" for r in rows]
         return "Subject-wise Average Marks:\n" + "\n".join(lines)
         
-    elif query_id == "TOP_PERFORMERS":
+    elif query_id == "EXAM_TOP_PERFORMERS":
         cid = p.get("course_id")
         course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
         limit = int(p.get("limit", 10))
