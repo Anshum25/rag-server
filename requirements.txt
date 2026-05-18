@@ -6,3 +6,6 @@ groq
 pymysql
 requests
 pydantic
+langchain
+langchain-core
+langchain-groq

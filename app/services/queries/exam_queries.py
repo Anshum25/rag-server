@@ -238,12 +238,37 @@ TEMPLATES = [
         "description": "failed students / Failed trainees in exam",
         "example_questions": [
             "Failed students?",
-            "Show failed students"
+            "Show failed students",
+            "Who failed in cabinman"
         ],
         "required_params": [],
         "optional_params": [
-            "passing_marks",
-            "exam_schedule_id"
+            "course_name",
+            "course_id",
+            "passing_marks"
+        ],
+        "allowed_roles": [
+            "principal",
+            "admin",
+            "exam_admin"
+        ],
+        "result_type": "list",
+        "security_level": "medium"
+    },
+    {
+        "id": "PASSED_TRAINEES",
+        "module": "exam",
+        "description": "passed students / Passed trainees in exam / who passed",
+        "example_questions": [
+            "Passed students?",
+            "Show passed students",
+            "Who passed the exam",
+            "List passed trainees"
+        ],
+        "required_params": [],
+        "optional_params": [
+            "course_name",
+            "course_id"
         ],
         "allowed_roles": [
             "principal",
@@ -1182,46 +1207,152 @@ def execute(query_id, params, cur, office_id):
         return f"Lowest Performers in {display_name}:\n" + "\n".join(lines)
         
     elif query_id == "FAILED_TRAINEES":
-        pm = float(p.get("passing_marks", 40))
         cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
             cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
             row = cur.fetchone()
             if not row: return "No courses available."
             cid = row['id']
         cur.execute("""
-            SELECT u.name, s.subject_name, em.mark_obtained, s.total_mark
+            SELECT u.name, u.user_code, s.subject_name, em.mark_obtained, s.total_mark, c.course_name, tc.course_batch
             FROM exam_marks em
             JOIN users u ON u.id = em.user_id
             JOIN subjects s ON s.id = em.subject_id
             JOIN training_calendars tc ON tc.id = em.course_id
-            WHERE em.course_id = %s AND em.mark_obtained < %s AND tc.office_id = %s
-        """, (cid, pm, office_id))
+            JOIN courses c ON c.id = tc.ct_id
+            WHERE em.course_id = %s AND em.result = 2 AND tc.office_id = %s
+            ORDER BY em.mark_obtained ASC
+        """, (cid, office_id))
         rows = cur.fetchall()
-        if not rows: return f"No trainees failed in course {cid} (marks < {pm})."
-        lines = [f"- {r['name']} in {r['subject_name']}: {r['mark_obtained']}/{r['total_mark']}" for r in rows[:50]]
-        return f"Failed Trainees in Course {cid} (showing up to 50):\n" + "\n".join(lines)
+        if not rows: 
+            # Get course name for message
+            cur.execute("SELECT c.course_name, tc.course_batch FROM training_calendars tc JOIN courses c ON c.id = tc.ct_id WHERE tc.id = %s", (cid,))
+            cname_row = cur.fetchone()
+            cname = f"{cname_row['course_name']} ({cname_row['course_batch']})" if cname_row else f"Course {cid}"
+            return f"No failed trainees in {cname}."
+        display_name = f"{rows[0]['course_name']} ({rows[0]['course_batch']})"
+        lines = [f"- {r['name']} (Code: {r['user_code']}): {r['subject_name']} - {r['mark_obtained']}/{r['total_mark']}" for r in rows[:50]]
+        return f"Failed Trainees in {display_name} (result=2, showing up to 50):\n" + "\n".join(lines)
         
-    elif query_id == "FAILED_TRAINEES_COUNT":
-        pm = float(p.get("passing_marks", 40))
+    elif query_id == "PASSED_TRAINEES":
         cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
             cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
             row = cur.fetchone()
             if not row: return "No courses available."
             cid = row['id']
         cur.execute("""
-            SELECT COUNT(DISTINCT em.user_id) AS failed_trainees
+            SELECT u.name, u.user_code, s.subject_name, em.mark_obtained, s.total_mark, c.course_name, tc.course_batch
+            FROM exam_marks em
+            JOIN users u ON u.id = em.user_id
+            JOIN subjects s ON s.id = em.subject_id
+            JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
+            WHERE em.course_id = %s AND em.result = 1 AND tc.office_id = %s
+            ORDER BY em.mark_obtained DESC
+        """, (cid, office_id))
+        rows = cur.fetchall()
+        if not rows: 
+            cur.execute("SELECT c.course_name, tc.course_batch FROM training_calendars tc JOIN courses c ON c.id = tc.ct_id WHERE tc.id = %s", (cid,))
+            cname_row = cur.fetchone()
+            cname = f"{cname_row['course_name']} ({cname_row['course_batch']})" if cname_row else f"Course {cid}"
+            return f"No passed trainees in {cname}."
+        display_name = f"{rows[0]['course_name']} ({rows[0]['course_batch']})"
+        lines = [f"- {r['name']} (Code: {r['user_code']}): {r['subject_name']} - {r['mark_obtained']}/{r['total_mark']}" for r in rows[:50]]
+        return f"Passed Trainees in {display_name} (result=1, showing up to 50):\n" + "\n".join(lines)
+        
+    elif query_id == "FAILED_TRAINEES_COUNT":
+        cid = p.get("course_id")
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
+        if not cid:
+            cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
+            row = cur.fetchone()
+            if not row: return "No courses available."
+            cid = row['id']
+        cur.execute("""
+            SELECT COUNT(DISTINCT em.user_id) AS failed_trainees, c.course_name, tc.course_batch
             FROM exam_marks em
             JOIN training_calendars tc ON tc.id = em.course_id
-            WHERE em.course_id = %s AND em.mark_obtained < %s AND tc.office_id = %s
-        """, (cid, pm, office_id))
+            JOIN courses c ON c.id = tc.ct_id
+            WHERE em.course_id = %s AND em.result = 2 AND tc.office_id = %s
+        """, (cid, office_id))
         r = cur.fetchone()
-        return f"Failed trainees count in course {cid} (marks < {pm}): {r['failed_trainees'] if r else 0}"
+        display_name = f"{r['course_name']} ({r['course_batch']})" if r and r['course_name'] else f"Course {cid}"
+        return f"Failed trainees count in {display_name} (result=2): {r['failed_trainees'] if r else 0}"
         
     elif query_id == "PASS_FAIL_SUMMARY":
         cid = p.get("course_id")
-        pm = float(p.get("passing_marks", 40))
+        course_name = _clean_course_name(p.get("course_name") or p.get("exam_name"))
+        
+        # Resolve course_name to course_id if name is provided
+        if not cid and course_name:
+            cur.execute(
+                """SELECT tc.id, tc.course_batch FROM training_calendars tc 
+                   JOIN courses c ON c.id = tc.ct_id 
+                   WHERE LOWER(c.course_name) LIKE LOWER(%s) AND tc.office_id = %s 
+                   AND EXISTS (SELECT 1 FROM exam_marks em WHERE em.course_id = tc.id)
+                   ORDER BY tc.from_date DESC LIMIT 1""",
+                (f"%{course_name}%", office_id)
+            )
+            match = cur.fetchone()
+            if match:
+                cid = match['id']
+            else:
+                return f"No exam marks data found for any '{course_name}' course."
+        
         if not cid:
             cur.execute("SELECT id FROM training_calendars WHERE office_id = %s ORDER BY id DESC LIMIT 1", (office_id,))
             row = cur.fetchone()
@@ -1229,14 +1360,17 @@ def execute(query_id, params, cur, office_id):
             cid = row['id']
         cur.execute("""
             SELECT 
-                COUNT(DISTINCT CASE WHEN em.mark_obtained >= %s THEN em.user_id END) AS passed,
-                COUNT(DISTINCT CASE WHEN em.mark_obtained < %s THEN em.user_id END) AS failed
+                COUNT(DISTINCT CASE WHEN em.result = 1 THEN em.user_id END) AS passed,
+                COUNT(DISTINCT CASE WHEN em.result = 2 THEN em.user_id END) AS failed,
+                c.course_name, tc.course_batch
             FROM exam_marks em
             JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
             WHERE em.course_id = %s AND tc.office_id = %s
-        """, (pm, pm, cid, office_id))
+        """, (cid, office_id))
         r = cur.fetchone()
-        return f"Pass / Fail Summary for Course {cid}:\nPassed: {r['passed']}\nFailed: {r['failed']}"
+        display_name = f"{r['course_name']} ({r['course_batch']})" if r and r['course_name'] else f"Course {cid}"
+        return f"Pass / Fail Summary for {display_name}:\nPassed (result=1): {r['passed']}\nFailed (result=2): {r['failed']}"
         
     elif query_id == "PASS_PERCENTAGE":
         cid = p.get("course_id")

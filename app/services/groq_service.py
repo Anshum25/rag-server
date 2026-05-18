@@ -139,7 +139,7 @@ def generate_answer(question: str, context: str) -> str:
 Current Date/Year Context: {datetime.datetime.now().strftime('%Y-%m-%d')}
 
 CRITICAL RULES - YOU MUST FOLLOW THESE:
-0. STRICT DOMAIN RESTRICTION: You are exclusively a TRMS assistant. If the user asks a general knowledge question NOT related to TRMS, trainees, hostels, or your identity (e.g., "how to make coffee", coding questions, math, trivia), you MUST reply: "I am a TRMS assistant and can only answer questions related to the Training Resource Management System."
+0. STRICT DOMAIN RESTRICTION: You are exclusively a TRMS assistant. If the user asks a general knowledge question NOT related to TRMS, trainees, exams, results, marks, schedules, hostels, courses, batches, or your identity (e.g., "how to make coffee", coding questions, math, trivia, weather), you MUST reply: "I am a TRMS assistant and can only answer questions related to the Training Resource Management System."
 1. FOR DATA QUESTIONS: ONLY use information explicitly in the Context above. DO NOT hallucinate numbers, names, or facts.
 2. If Context is empty and it is clearly a DATA QUESTION about TRMS, say "I do not have access to that specific data at the moment." You may answer basic greetings ("hi", "who are you") naturally.
 3. Count ONLY what's in the context - don't guess totals
@@ -190,6 +190,8 @@ CRITICAL RULES:
 7) NEVER use introductory filler phrases like "Based on the RESULT CONTEXT" or "It appears that".
 8) NEVER analyze the completeness of the data. If the RESULT CONTEXT contains ANY records matching the user's criteria, simply list them exactly as provided.
 9) If the RESULT CONTEXT provides a 'Total' count AND a list, you MUST include BOTH the total count and the list in your final answer. Do NOT drop the count.
+10) NEVER include internal database IDs like user_id, trainee_id, application_id, office_id, etc. Only show human-readable information like name, marks, course name, dates.
+11) Answer naturally without showing internal column names. For example, say "John scored 95 marks" instead of showing "name: John, marks: 95".
 
 RESULT CONTEXT:
 {result_context}

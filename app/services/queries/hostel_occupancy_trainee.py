@@ -171,17 +171,6 @@ def execute(query_id, params, cur, office_id):
         lines = [f"- {r['name']} | Room {r['room_name']} | {r['gender'] or 'N/A'} | In: {r['in_date']}" for r in rows]
         return f"Building {bid} Occupants ({len(rows)}):\n" + "\n".join(lines)
 
-    elif query_id == "HOSTEL_TRAINEES_IN_BUILDING":
-        bldg = p.get("building_name", "")
-        if not bldg: return "Please specify a building name."
-        cur.execute("""SELECT u.name, hr.room_name FROM hostel_masters hm
-            JOIN users u ON u.id=hm.user_id JOIN hostel_rooms hr ON hr.id=hm.room_id
-            JOIN hostel_buildings hb ON hb.id=hr.building_id
-            WHERE hm.office_id=%s AND hm.h_status=1 AND hb.building_name LIKE %s""", (office_id, f"%{bldg}%"))
-        rows = cur.fetchall()
-        if not rows: return f"No trainees in building '{bldg}'."
-        lines = [f"- {r['name']} (Room {r['room_name']})" for r in rows]
-        return f"Trainees in {bldg} ({len(rows)}):\n" + "\n".join(lines)
 
     elif query_id == "HOSTEL_ROOM_OCCUPANTS":
         room = p.get("room_name", "")
@@ -204,24 +193,48 @@ def execute(query_id, params, cur, office_id):
         if len(rows) > 30: res += "\n...and more."
         return res
 
-    elif query_id == "HOSTEL_TRAINEES_LIST":
-        cur.execute("""SELECT DISTINCT u.name FROM hostel_masters hm
-            JOIN users u ON u.id=hm.user_id WHERE hm.office_id=%s AND hm.h_status=1
-            AND u.name IS NOT NULL ORDER BY u.name ASC""", (office_id,))
-        rows = cur.fetchall()
-        if not rows: return "No trainees in hostel."
-        names = [r["name"] for r in rows]
-        return f"Hostel trainees ({len(names)}):\n- " + "\n- ".join(names[:50])
 
     elif query_id == "HOSTEL_FULL_ALLOTMENT_LIST":
-        cur.execute("""SELECT u.name, u.user_code, u.gender, u.designation, hb.building_name, hr.room_name,
-            hm.in_date, hm.out_date, hm.days, hm.beds, IF(hm.food=1,'Yes','No') AS food, IF(hm.mess=1,'Yes','No') AS mess
+        # Get optional building filter
+        bname = p.get("building_name", "")
+        bid = None
+        if bname:
+            import difflib
+            cur.execute("SELECT id, building_name FROM hostel_buildings WHERE office_id=%s AND status=1", (office_id,))
+            buildings = cur.fetchall()
+            matches = []
+            for b in buildings:
+                name_clean = b['building_name'].split('(')[0].strip().lower()
+                ratio = difflib.SequenceMatcher(None, bname.lower(), name_clean).ratio()
+                if bname.lower() in name_clean or ratio > 0.6:
+                    matches.append((ratio, b))
+            if matches:
+                matches.sort(key=lambda x: x[0], reverse=True)
+                bid = matches[0][1]['id']
+        
+        sql = """SELECT u.name, u.user_code, u.gender, u.designation, hb.building_name, hr.room_name,
+            hm.in_date, hm.out_date, hm.days, hm.beds, IF(hm.food=1,'Yes','No') AS food, IF(hm.mess=1,'Yes','No') AS mess,
+            tc.course_batch, c.course_name
             FROM hostel_masters hm JOIN users u ON u.id=hm.user_id JOIN hostel_buildings hb ON hb.id=hm.building_id
-            JOIN hostel_rooms hr ON hr.id=hm.room_id WHERE hm.office_id=%s AND hm.h_status=1
-            AND (hm.out_date IS NULL OR hm.out_date > NOW()) ORDER BY hb.building_name, hr.room_name, u.name""", (office_id,))
+            JOIN hostel_rooms hr ON hr.id=hm.room_id
+            LEFT JOIN training_calendars tc ON tc.id=hm.course_id
+            LEFT JOIN courses c ON c.id=tc.ct_id
+            WHERE hm.office_id=%s AND hm.h_status=1 AND (hm.out_date IS NULL OR hm.out_date > NOW())"""
+        params = [office_id]
+        if bid:
+            sql += " AND hm.building_id=%s"
+            params.append(bid)
+        sql += " ORDER BY hb.building_name, hr.room_name, u.name"
+        cur.execute(sql, tuple(params))
         rows = cur.fetchall()
-        if not rows: return "No current allotments."
-        lines = [f"- {r['name']} | {r['building_name']} Room {r['room_name']} | In: {r['in_date']} Out: {r['out_date']} | Food: {r['food']} Mess: {r['mess']}" for r in rows[:50]]
+        if not rows: 
+            if bname:
+                return f"No current allotments in {bname}."
+            return "No current allotments."
+        lines = []
+        for r in rows[:50]:
+            course_info = f" | {r['course_batch'] or 'N/A'}: {r['course_name'] or 'N/A'}" if r['course_name'] else ""
+            lines.append(f"- {r['name']} | {r['building_name']} Room {r['room_name']}{course_info} | In: {r['in_date'][:10]}")
         return f"Current Allotments ({len(rows)}):\n" + "\n".join(lines)
 
     elif query_id == "HOSTEL_GENDER_WISE_OCCUPANCY":
@@ -261,22 +274,59 @@ def execute(query_id, params, cur, office_id):
 
     elif query_id in ("HOSTEL_TRAINEES_STAYING", "HOSTEL_FIND_TRAINEE_ROOM"):
         uid = p.get("user_id")
+        # Get optional building filter
+        bname = p.get("building_name", "")
+        bid = None
+        if bname:
+            import difflib
+            cur.execute("SELECT id, building_name FROM hostel_buildings WHERE office_id=%s AND status=1", (office_id,))
+            buildings = cur.fetchall()
+            matches = []
+            for b in buildings:
+                name_clean = b['building_name'].split('(')[0].strip().lower()
+                ratio = difflib.SequenceMatcher(None, bname.lower(), name_clean).ratio()
+                if bname.lower() in name_clean or ratio > 0.6:
+                    matches.append((ratio, b))
+            if matches:
+                matches.sort(key=lambda x: x[0], reverse=True)
+                bid = matches[0][1]['id']
+        
         if query_id == "HOSTEL_FIND_TRAINEE_ROOM" and uid:
-            cur.execute("""SELECT hm.user_id, hr.room_name, hb.building_name, hm.in_date, hm.out_date, hm.h_status
+            cur.execute("""SELECT u.name, hr.room_name, hb.building_name, hm.in_date, hm.out_date, hm.h_status
                 FROM hostel_masters hm LEFT JOIN hostel_rooms hr ON hr.id=hm.room_id
                 LEFT JOIN hostel_buildings hb ON hb.id=hm.building_id
+                JOIN users u ON u.id=hm.user_id
                 WHERE hm.office_id=%s AND hm.user_id=%s ORDER BY hm.id DESC LIMIT 1""", (office_id, uid))
             r = cur.fetchone()
             if not r: return f"No hostel record for user {uid}."
-            return f"User {uid}\nBuilding: {r['building_name']}\nRoom: {r['room_name']}\nIn: {r['in_date']}\nOut: {r['out_date']}\nStatus: {'Active' if r['h_status']==1 else 'Inactive'}"
+            return f"Trainee: {r['name']}\nBuilding: {r['building_name']}\nRoom: {r['room_name']}\nIn: {r['in_date']}\nOut: {r['out_date']}\nStatus: {'Active' if r['h_status']==1 else 'Inactive'}"
         else:
-            cur.execute("""SELECT hm.id, hm.user_id, hr.room_name, hb.building_name, hm.in_date, hm.out_date, hm.h_status
-                FROM hostel_masters hm LEFT JOIN hostel_rooms hr ON hr.id=hm.room_id
-                LEFT JOIN hostel_buildings hb ON hb.id=hm.building_id
-                WHERE hm.office_id=%s AND hm.h_status=1""", (office_id,))
+            # Query with building filter and course info
+            sql = """SELECT u.name, u.user_code, u.gender, u.designation, 
+                hb.building_name, hr.room_name, hm.in_date, hm.out_date, hm.beds,
+                tc.course_batch, c.course_name
+                FROM hostel_masters hm 
+                JOIN users u ON u.id=hm.user_id 
+                JOIN hostel_buildings hb ON hb.id=hm.building_id
+                JOIN hostel_rooms hr ON hr.id=hm.room_id
+                LEFT JOIN training_calendars tc ON tc.id=hm.course_id
+                LEFT JOIN courses c ON c.id=tc.ct_id
+                WHERE hm.office_id=%s AND hm.h_status=1 AND (hm.out_date IS NULL OR hm.out_date > NOW())"""
+            params = [office_id]
+            if bid:
+                sql += " AND hm.building_id=%s"
+                params.append(bid)
+            sql += " ORDER BY hb.building_name, hr.room_name, u.name"
+            cur.execute(sql, tuple(params))
             rows = cur.fetchall()
-            if not rows: return "No trainees currently staying."
-            lines = [f"- ID:{r['user_id']} | {r['building_name']} Room {r['room_name']} | In: {r['in_date']} Out: {r['out_date']}" for r in rows[:50]]
+            if not rows: 
+                if bname:
+                    return f"No trainees currently staying in {bname}."
+                return "No trainees currently staying."
+            lines = []
+            for r in rows[:50]:
+                course_info = f" | {r['course_batch'] or 'N/A'}: {r['course_name'] or 'N/A'}" if r['course_name'] else ""
+                lines.append(f"- {r['name']} | {r['building_name']} Room {r['room_name']}{course_info} | In: {r['in_date'][:10]}")
             return f"Trainees Staying ({len(rows)}):\n" + "\n".join(lines)
 
     elif query_id == "HOSTEL_RECENT_CHECKINS":
