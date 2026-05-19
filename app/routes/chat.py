@@ -59,7 +59,7 @@ ACCESS_KEYWORDS = {"access", "permission", "permissions", "allowed", "role"}
 EXAM_KEYWORDS = {
     "exam", "marks", "mark", "result", "results", "pass", "passed", "fail", "failed",
     "score", "scores", "subject", "subjects", "grade", "grades", "percentage",
-    "performer", "performers", "top", "highest", "lowest", "average", "performance",
+    "performer", "performers", "performance",
     "re-exam", "reexam", "re exam", "schedule", "test", "paper", "topper", "toppers",
     # Trainee/student words (including common typos)
     "trainee", "trainees", "student", "students",
@@ -240,7 +240,7 @@ def _is_exam_question(message: str) -> bool:
         "subject", "subjects", "grade", "grades", "percentage",
         "pass", "passed", "fail", "failed", "performance",
         "performer", "performers", "re-exam", "reexam", "re exam", "paper",
-        "topper", "toppers", "highest", "lowest", "average", "top",
+        "topper", "toppers",
     }
     if any(kw in text for kw in exam_specific):
         print(f"[Chat] Is exam question: True (keyword match)")
@@ -307,6 +307,11 @@ def _is_course_question(message: str) -> bool:
     # If clearly an exam question, don't treat as course
     exam_indicators = {"exam", "marks", "mark", "result", "pass", "fail", "score", "subject", "grade", "percentage"}
     if any(kw in text for kw in exam_indicators):
+        return False
+
+    # If clearly feedback or complaint question, don't treat as course
+    feedback_complaint_indicators = {"feedback", "rating", "review", "complaint", "complain", "grievance"}
+    if any(kw in text for kw in feedback_complaint_indicators):
         return False
 
     # If clearly a trainee question (trainee-specific words), don't treat as course
@@ -480,16 +485,25 @@ def _format_fallback_rows(rows: list, max_rows: int = 50) -> str:
     """Convert SQL result rows (list of dicts) into a readable text context."""
     if not rows:
         return "No data found."
+    
+    # If it is a single row with a single column (usually a COUNT, SUM, AVG, etc.)
+    if len(rows) == 1 and len(rows[0]) == 1:
+        k = list(rows[0].keys())[0]
+        v = rows[0][k]
+        val = "None / 0" if v is None else str(v)
+        return f"{k}: {val}"
+
     limited = rows[:max_rows]
     lines = []
     for i, row in enumerate(limited, 1):
         # Filter out sensitive/internal columns and format nicely
         parts = []
         for k, v in row.items():
-            if v is not None and k.lower() not in _SENSITIVE_COLUMNS:
+            if k.lower() not in _SENSITIVE_COLUMNS:
+                val = "None / 0" if v is None else str(v)
                 # Format the key nicely (snake_case -> Title Case)
                 label = k.replace('_', ' ').title()
-                parts.append(f"{label}: {v}")
+                parts.append(f"{label}: {val}")
         if parts:
             lines.append(f"{i}. " + " | ".join(parts))
     summary = f"Total: {len(rows)} record(s)" + (f" (showing first {max_rows})" if len(rows) > max_rows else "")
@@ -857,7 +871,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_exam_question(user_message) or _is_exam_question(refined):
             print(f"[Chat] Trying Exam SQL fallback...")
             fallback = run_exam_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "exam")
                 if result:
                     return result
@@ -868,7 +882,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_trainee_question(user_message) or _is_trainee_question(refined):
             print(f"[Chat] Trying Trainee SQL fallback...")
             fallback = run_trainee_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "trainee")
                 if result:
                     return result
@@ -879,7 +893,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_hostel_question(user_message) or _is_hostel_question(refined):
             print(f"[Chat] Trying Hostel SQL fallback...")
             fallback = run_hostel_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "hostel")
                 if result:
                     return result
@@ -890,7 +904,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_course_question(user_message) or _is_course_question(refined):
             print(f"[Chat] Trying Course SQL fallback...")
             fallback = run_course_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "course")
                 if result:
                     return result
@@ -901,7 +915,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_attendance_question(user_message) or _is_attendance_question(refined):
             print(f"[Chat] Trying Attendance SQL fallback...")
             fallback = run_attendance_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "attendance")
                 if result:
                     return result
@@ -912,7 +926,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_timetable_question(user_message) or _is_timetable_question(refined):
             print(f"[Chat] Trying Timetable SQL fallback...")
             fallback = run_timetable_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "timetable")
                 if result:
                     return result
@@ -923,7 +937,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_complaint_question(user_message) or _is_complaint_question(refined):
             print(f"[Chat] Trying Complaint SQL fallback...")
             fallback = run_complaint_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "complaint")
                 if result:
                     return result
@@ -934,7 +948,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_feedback_question(user_message) or _is_feedback_question(refined):
             print(f"[Chat] Trying Feedback SQL fallback...")
             fallback = run_feedback_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "feedback")
                 if result:
                     return result
@@ -945,7 +959,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_faculty_vl_question(user_message) or _is_faculty_vl_question(refined):
             print(f"[Chat] Trying Faculty VL SQL fallback...")
             fallback = run_faculty_vl_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "faculty_vl")
                 if result:
                     return result
@@ -956,7 +970,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_library_question(user_message) or _is_library_question(refined):
             print(f"[Chat] Trying Library SQL fallback...")
             fallback = run_library_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "library")
                 if result:
                     return result
@@ -967,7 +981,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_mess_question(user_message) or _is_mess_question(refined):
             print(f"[Chat] Trying Mess SQL fallback...")
             fallback = run_mess_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "mess")
                 if result:
                     return result
@@ -978,7 +992,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_vehicle_question(user_message) or _is_vehicle_question(refined):
             print(f"[Chat] Trying Vehicle SQL fallback...")
             fallback = run_vehicle_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "vehicle")
                 if result:
                     return result
@@ -989,7 +1003,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_meeting_question(user_message) or _is_meeting_question(refined):
             print(f"[Chat] Trying Meeting SQL fallback...")
             fallback = run_meeting_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "meeting")
                 if result:
                     return result
@@ -1000,7 +1014,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_seminar_question(user_message) or _is_seminar_question(refined):
             print(f"[Chat] Trying Seminar SQL fallback...")
             fallback = run_seminar_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "seminar")
                 if result:
                     return result
@@ -1011,7 +1025,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_inspection_question(user_message) or _is_inspection_question(refined):
             print(f"[Chat] Trying Inspection SQL fallback...")
             fallback = run_inspection_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "inspection")
                 if result:
                     return result
@@ -1022,7 +1036,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_sports_question(user_message) or _is_sports_question(refined):
             print(f"[Chat] Trying Sports SQL fallback...")
             fallback = run_sports_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "sports")
                 if result:
                     return result
@@ -1033,7 +1047,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_pass_eq_question(user_message) or _is_pass_eq_question(refined):
             print(f"[Chat] Trying Pass EQ SQL fallback...")
             fallback = run_pass_eq_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "pass_eq")
                 if result:
                     return result
@@ -1044,7 +1058,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_field_study_tour_question(user_message) or _is_field_study_tour_question(refined):
             print(f"[Chat] Trying Field Study Tour SQL fallback...")
             fallback = run_field_study_tour_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "field_study_tour")
                 if result:
                     return result
@@ -1055,7 +1069,7 @@ def chat(request: ChatRequest, http_request: Request = None):
         if _is_master_admin_question(user_message) or _is_master_admin_question(refined):
             print(f"[Chat] Trying Master Admin SQL fallback...")
             fallback = run_master_admin_sql_fallback(refined, office_id)
-            if fallback.get("row_count", 0) > 0:
+            if fallback.get("row_count", -1) >= 0:
                 result = _process_fallback_result(fallback, "master_admin")
                 if result:
                     return result

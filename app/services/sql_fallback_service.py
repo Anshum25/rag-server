@@ -166,6 +166,141 @@ ALLOWED_MASTER_ADMIN_TABLES = [
     "company", "bank", "holidays", "site_info"
 ]
 
+ALL_ALLOWED_TABLES = set(
+    ALLOWED_EXAM_TABLES +
+    ALLOWED_TRAINEE_TABLES +
+    ALLOWED_HOSTEL_TABLES +
+    ALLOWED_COURSE_TABLES +
+    ALLOWED_ATTENDANCE_TABLES +
+    ALLOWED_TIMETABLE_TABLES +
+    ALLOWED_FACULTY_VL_TABLES +
+    ALLOWED_FEEDBACK_TABLES +
+    ALLOWED_COMPLAINT_TABLES +
+    ALLOWED_LIBRARY_TABLES +
+    ALLOWED_MESS_TABLES +
+    ALLOWED_VEHICLE_TABLES +
+    ALLOWED_MEETING_TABLES +
+    ALLOWED_SEMINAR_TABLES +
+    ALLOWED_INSPECTION_TABLES +
+    ALLOWED_SPORTS_TABLES +
+    ALLOWED_PASS_EQ_TABLES +
+    ALLOWED_FIELD_STUDY_TOUR_TABLES +
+    ALLOWED_MASTER_ADMIN_TABLES
+)
+
+CONCISE_ATTENDANCE_SCHEMA = """
+Table: attendances (stores trainee attendance/punch records)
+Columns:
+- id
+- user_id (joins with users.id)
+- course_id (joins with training_calendars.id)
+- punch_time (datetime)
+- punch (status: 4=Present, 5=Absent(AB), 1=CL, 2=LAP, 3=SL)
+"""
+
+CONCISE_EXAM_SCHEMA = """
+Table: exam_marks (stores trainee marks)
+Columns:
+- id
+- user_id (joins with users.id)
+- course_id (joins with training_calendars.id)
+- mark_obtained (VARCHAR, cast to numeric for sorting/averages)
+- result (1=Pass, 2=Fail, 0=Not Appeared)
+- status (1=active)
+
+Table: et_design (stores exam schedules/dates)
+Columns:
+- id
+- course_id (joins with training_calendars.id)
+- exam_date (date)
+- status (1=active)
+"""
+
+CONCISE_HOSTEL_SCHEMA = """
+Table: hostel_masters (stores trainee hostel stay records)
+Columns:
+- id
+- user_id (joins with users.id)
+- building_id (joins with hostel_buildings.id)
+- room_id (joins with hostel_rooms.id)
+- in_date (date)
+- out_date (date)
+- h_status (stay status: 1=currently staying)
+
+Table: hostel_buildings (stores hostel building names)
+Columns:
+- id
+- building_name
+"""
+
+CONCISE_FEEDBACK_SCHEMA = """
+Table: feed_master (stores feedback responses)
+Columns:
+- id
+- user_id (joins with users.id)
+- course_id (joins with training_calendars.id)
+- response (VARCHAR rating value)
+- status (1=active)
+"""
+
+CONCISE_COMPLAINT_SCHEMA = """
+Table: complaints (stores user complaints)
+Columns:
+- id
+- user_id (joins with users.id)
+- category_id
+- complaint_by
+- complaint_date
+- status (1=active)
+"""
+
+CONCISE_TRAINEE_SCHEMA = """
+Table: tra_masters (stores trainee course enrollments)
+Columns:
+- id
+- user_id (joins with users.id)
+- course_id (joins with training_calendars.id)
+- status (1=active)
+- is_approved (1=approved)
+"""
+
+def get_dynamic_schemas(user_question: str, base_schema: str, base_schema_name: str) -> str:
+    """Dynamically append other schemas if keywords from their modules are present in the question."""
+    text = user_question.lower()
+    combined = base_schema
+    
+    # 1. Exam
+    if "exam" in text or "marks" in text or "result" in text or "score" in text or "topper" in text:
+        if base_schema_name != "exam":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_EXAM_SCHEMA
+            
+    # 2. Trainee
+    if "trainee" in text or "student" in text:
+        if base_schema_name != "trainee":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_TRAINEE_SCHEMA
+            
+    # 3. Hostel
+    if "hostel" in text or "room" in text or "building" in text or "block" in text:
+        if base_schema_name != "hostel":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_HOSTEL_SCHEMA
+            
+    # 5. Attendance
+    if "attendance" in text or "punch" in text or "present" in text or "absent" in text:
+        if base_schema_name != "attendance":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_ATTENDANCE_SCHEMA
+            
+    # 7. Feedback
+    if "feedback" in text or "rating" in text or "review" in text:
+        if base_schema_name != "feedback":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_FEEDBACK_SCHEMA
+            
+    # 8. Complaint
+    if "complaint" in text or "grievance" in text:
+        if base_schema_name != "complaint":
+            combined += "\n\nCross-Module Table Info:\n" + CONCISE_COMPLAINT_SCHEMA
+            
+    return combined
+
 BLOCKED_SQL_WORDS = [
     "insert",
     "update",
@@ -210,6 +345,13 @@ def clean_llm_sql(sql: str) -> str:
     # Remove trailing semicolons for uniform handling (validator re-checks)
     sql = sql.rstrip(";").strip()
 
+    # Dynamic fix for LLM forgetting to JOIN users when querying module tables
+    if "users.office_id" in sql.lower() and "join users" not in sql.lower():
+        sql = re.sub(r'(FROM\s+attendances)(?!\s+join)', r'\1 JOIN users ON users.id = attendances.user_id', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'(FROM\s+srec_sport)(?!\s+join)', r'\1 JOIN users ON users.id = srec_sport.user_id', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'(FROM\s+pass_eq)(?!\s+join)', r'\1 JOIN users ON users.id = pass_eq.user_id', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'(FROM\s+library)(?!\s+join)', r'\1 JOIN users ON users.id = library.user_id', sql, flags=re.IGNORECASE)
+
     return sql
 
 
@@ -246,8 +388,9 @@ def _validate_sql(sql: str, office_id: int, allowed_tables: list, module_label: 
     # Extract table-like identifiers after FROM / JOIN keywords
     table_refs = re.findall(r'(?:FROM|JOIN)\s+(\w+)', sql, re.IGNORECASE)
     for tbl in table_refs:
-        if tbl.lower() not in allowed_tables:
-            raise ValueError(f"Table '{tbl}' is not in allowed {module_label} tables.")
+        tbl_lower = tbl.lower()
+        if tbl_lower not in allowed_tables and tbl_lower not in ALL_ALLOWED_TABLES:
+            raise ValueError(f"Table '{tbl}' is not in allowed database tables.")
 
     # Must contain the office_id value somewhere (as a number)
     if str(office_id) not in sql:
@@ -282,8 +425,22 @@ def _run_fallback(user_question: str, office_id: int, prompt: str,
     logger.info(f"[SQL Fallback/{module_label}] No predefined query found. Using {module_label} SQL fallback...")
 
     try:
+        # Append cross-module join instructions and enforce office_id format
+        extra_rules = f"""
+CRITICAL SQL GENERATION RULES:
+- ALWAYS include a WHERE clause filter for office_id = {office_id} (e.g. `users.office_id = {office_id}`, `training_calendars.office_id = {office_id}`, or `courses.office_id = {office_id}`).
+- DO NOT join the same table (like users, courses, or training_calendars) twice in the FROM/JOIN clause without unique aliases. Reuse existing table joins if they are already in the query.
+- When joining attendances: use `JOIN attendances ON attendances.user_id = users.id` and filter by punch.
+- When joining exam_marks: use `JOIN exam_marks ON exam_marks.user_id = users.id`.
+- MySQL ONLY_FULL_GROUP_BY: When using GROUP BY, every column in the SELECT list MUST either be part of an aggregate function (e.g. MAX, MIN, SUM, AVG, COUNT) or be listed in the GROUP BY clause.
+- MySQL WHERE vs HAVING: You MUST NOT use aggregate functions (like SUM, AVG, COUNT, MAX, MIN) in the WHERE clause. Any condition filtering aggregated values (e.g. `COUNT(attendances.id) < 75` or `AVG(...) > 90`) MUST be placed in the HAVING clause.
+- DO NOT use correlated subqueries inside the WHERE clause on large tables like attendances (e.g. `(SELECT COUNT(*) FROM attendances ...) < 0.75`). Instead, join the table and use GROUP BY with a HAVING clause.
+- Ensure all table names and column names match the provided schemas exactly.
+"""
+        full_prompt = prompt + "\n" + extra_rules
+        
         # Step 1: Generate
-        raw_sql = _generate_sql(prompt, module_label)
+        raw_sql = _generate_sql(full_prompt, module_label)
         print(f"[SQL Fallback/{module_label}] Generated fallback SQL: {raw_sql}")
         logger.info(f"[SQL Fallback/{module_label}] Generated fallback SQL: {raw_sql}")
 
@@ -344,10 +501,12 @@ Rules:
 - Do not use INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, REPLACE, GRANT, REVOKE.
 - Do not use LOAD_FILE, INTO OUTFILE, INTO DUMPFILE, or INFILE.
 - Do not generate multiple statements.
-- Always include office filtering.
-- Prefer office filter through courses.office_id = {office_id}.
-  To reach courses from exam_marks, join: exam_marks.course_id = training_calendars.id, then training_calendars.ct_id = courses.id.
-- If using exam_design directly, use exam_design.office_id = {office_id}.
+- ALWAYS include a filter for office_id = {office_id} in your WHERE clause (e.g. users.office_id = {office_id}, training_calendars.office_id = {office_id}, or courses.office_id = {office_id}).
+- CRITICAL: Since exam_marks, et_design, and exam_design do not have office_id directly, you MUST join training_calendars, courses, or users to filter by office_id.
+  - To join from exam_marks: JOIN training_calendars tc ON tc.id = exam_marks.course_id JOIN courses c ON c.id = tc.ct_id WHERE c.office_id = {office_id}
+  - To join from et_design: JOIN training_calendars tc ON tc.id = et_design.course_id JOIN courses c ON c.id = tc.ct_id WHERE c.office_id = {office_id}
+  - To join from exam_design: JOIN courses c ON c.id = exam_design.cs_id WHERE c.office_id = {office_id}
+  Never filter by office_id directly on tables that do not have it!
 - Use status = 1 for active records where applicable.
 - Add LIMIT 50 for list/detail queries.
 - Return SQL only.
@@ -361,10 +520,11 @@ SQL behavior:
 - For fail count, use exam_marks.result = 2.
 - For not appeared count, use exam_marks.result = 0.
 - For year filtering, use YEAR(training_calendars.from_date) or YEAR(et_design.exam_date), depending on question.
+- CRITICAL: exam_marks.mark_obtained is VARCHAR. When sorting by marks (highest/lowest/toppers), ALWAYS use: ORDER BY CAST(exam_marks.mark_obtained AS UNSIGNED) DESC (or ASC). If you do not CAST, alphabetical sorting will put non-numeric marks like 'Q' (Qualified) at the top.
 - For month filtering, use MONTH(training_calendars.from_date) or MONTH(et_design.exam_date), depending on question.
 
 Schema:
-{EXAM_SCHEMA}
+{get_dynamic_schemas(user_question, EXAM_SCHEMA, "exam")}
 
 User question:
 {user_question}
@@ -444,7 +604,7 @@ ORDER BY tc.from_date DESC
 LIMIT 1;
 
 Schema:
-{TRAINEE_SCHEMA}
+{get_dynamic_schemas(user_question, TRAINEE_SCHEMA, "trainee")}
 
 User question:
 {user_question}
@@ -512,7 +672,7 @@ SQL behavior:
 - For rooms with toilet: hostel_rooms.toilet = 'Y'
 
 Schema:
-{HOSTEL_SCHEMA}
+{get_dynamic_schemas(user_question, HOSTEL_SCHEMA, "hostel")}
 
 User question:
 {user_question}
@@ -594,7 +754,7 @@ ORDER BY tc.from_date DESC
 LIMIT 1;
 
 Schema:
-{COURSE_SCHEMA}
+{get_dynamic_schemas(user_question, COURSE_SCHEMA, "course")}
 
 User question:
 {user_question}
@@ -635,7 +795,7 @@ Rules:
 - Return SQL only, no markdown, no explanation.
 - If cannot answer, return: UNSUPPORTED_QUERY
 Schema:
-{ATTENDANCE_SCHEMA}
+{get_dynamic_schemas(user_question, ATTENDANCE_SCHEMA, "attendance")}
 User question:
 {user_question}
 SQL:
@@ -655,13 +815,18 @@ def build_timetable_sql_prompt(user_question: str, office_id: int) -> str:
 Generate exactly one SELECT query.
 Rules:
 - Use only the provided Timetable schema.
-- Always include office_id = {office_id} for security.
+- Always include office filtering.
+- CRITICAL: Since time_masters, tt_designs, and tt_designs_daywise do not have office_id directly, you MUST join training_calendars (or courses) to filter by office_id.
+  - To join from tt_designs: JOIN training_calendars tc ON tc.id = tt_designs.course_id WHERE tc.office_id = {office_id}
+  - To join from tt_designs_daywise: JOIN training_calendars tc ON tc.id = tt_designs_daywise.course_id WHERE tc.office_id = {office_id}
+  - To join from time_masters: JOIN training_calendars tc ON tc.id = time_masters.course_id WHERE tc.office_id = {office_id}
+  Never filter by office_id directly on these tables without joining training_calendars or users!
 - Use status = 1 for active records.
 - Add LIMIT 50 for list queries.
 - Return SQL only, no markdown, no explanation.
 - If cannot answer, return: UNSUPPORTED_QUERY
 Schema:
-{TIMETABLE_SCHEMA}
+{get_dynamic_schemas(user_question, TIMETABLE_SCHEMA, "timetable")}
 User question:
 {user_question}
 SQL:
@@ -707,13 +872,17 @@ def build_feedback_sql_prompt(user_question: str, office_id: int) -> str:
 Generate exactly one SELECT query.
 Rules:
 - Use only the provided Feedback schema.
-- Always include office_id = {office_id} for security.
-- Use status = 1 for active records.
+- Always include office filtering.
+- CRITICAL: Since feed_master and feed_forwards do not have office_id directly, you MUST join training_calendars, courses, or users to filter by office_id.
+  - To join from feed_master: JOIN training_calendars tc ON tc.id = feed_master.course_id WHERE tc.office_id = {office_id} (or JOIN users ON users.id = feed_master.user_id WHERE users.office_id = {office_id})
+  - To join from feed_forwards: JOIN training_calendars tc ON tc.id = feed_forwards.course_id WHERE tc.office_id = {office_id}
+  Never filter by office_id directly on these tables without the correct JOINs!
+- Use status = 1 for active records where applicable.
 - Add LIMIT 50 for list queries.
 - Return SQL only, no markdown, no explanation.
 - If cannot answer, return: UNSUPPORTED_QUERY
 Schema:
-{FEEDBACK_SCHEMA}
+{get_dynamic_schemas(user_question, FEEDBACK_SCHEMA, "feedback")}
 User question:
 {user_question}
 SQL:
@@ -739,7 +908,7 @@ Rules:
 - Return SQL only, no markdown, no explanation.
 - If cannot answer, return: UNSUPPORTED_QUERY
 Schema:
-{COMPLAINT_SCHEMA}
+{get_dynamic_schemas(user_question, COMPLAINT_SCHEMA, "complaint")}
 User question:
 {user_question}
 SQL:

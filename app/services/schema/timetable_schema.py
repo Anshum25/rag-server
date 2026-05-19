@@ -23,48 +23,113 @@ Table: tt_designs
 Columns:
 - id
 - course_id
+- session_id
+- month
+- year
+- faculties
+- type
+- vl_id
+- departments
+- merge_from
+- merge_to
+- status
+- created_at
+- updated_at
 
 Table: tt_designs_daywise
 Columns:
 - id
 - tt_design_id
+- course_id
+- session_id
+- date
+- faculties
+- type
+- vl_id
+- departments
+- subject_id
+- class_room_id
+- merge_from
+- merge_to
+- status
+- created_at
+- updated_at
 
 Table: training_calendars
 Columns:
 - id
 - cf_id
 - ct_id
+- office_id
+- course_batch
+- class_id
+- from_date
+- to_date
+- status
+- created_at
+- updated_at
 
 Table: courses
 Columns:
 - id
 - cf_id
+- office_id
+- course_name
+- status
+- created_at
+- updated_at
 
 Table: subjects
 Columns:
 - id
 - office_id
+- subject_name
+- status
+- created_at
+- updated_at
 
 Table: topics
 Columns:
 - id
 - office_id
+- topic_name
+- topic_description
+- status
+- created_at
+- updated_at
 
 Table: sessions
 Columns:
 - id
 - office_id
+- session
+- start_time
+- end_time
+- status
+- created_at
+- updated_at
 
 Table: class_rooms
 Columns:
 - id
 - office_id
+- class_name
+- capacity
+- location
+- status
+- created_at
+- updated_at
 
 Table: users
 Columns:
 - id
 - role_id
 - office_id
+- name
+- email
+- status
+- created_at
+- updated_at
 
 Table: designations
 Columns:
@@ -99,6 +164,9 @@ Recommended relationships:
 - time_masters.course_id -> training_calendars.id
 - tt_designs.course_id -> training_calendars.id
 - tt_designs_daywise.tt_design_id -> tt_designs.id
+- tt_designs_daywise.course_id -> training_calendars.id
+- tt_designs_daywise.subject_id -> subjects.id
+- tt_designs_daywise.class_room_id -> class_rooms.id
 - training_calendars.ct_id -> courses.id
 - vl_management for visiting lecturer sessions
 

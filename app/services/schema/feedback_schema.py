@@ -63,22 +63,37 @@ Columns:
 - id
 - role_id
 - office_id
+- name
+- email
+- status
 
 Table: courses
 Columns:
 - id
-- cf_id
+- office_id
+- course_name
+- status
+- created_at
+- updated_at
 
 Table: training_calendars
 Columns:
 - id
+- office_id
 - cf_id
 - ct_id
+- from_date
+- to_date
+- status
+- created_at
+- updated_at
 
 Table: subjects
 Columns:
 - id
 - office_id
+- subject_name
+- status
 
 Table: vl_management
 Columns:
@@ -107,6 +122,7 @@ Business meaning:
 Recommended relationships:
 - feed_master.user_id = users.id
 - feed_master.course_id = training_calendars.id
+- training_calendars.ct_id = courses.id
 - feed_master.fq_id = feed_que.fq_id
 - feed_master.fs_id = feed_section.fs_id
 - feed_que_vls.vl_id = vl_management.id

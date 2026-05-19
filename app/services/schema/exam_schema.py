@@ -40,7 +40,7 @@ Table: et_design
 Columns:
 - id
 - course_id
-- subject_id
+- subject
 - exam_date
 - start_time
 - end_time
@@ -53,8 +53,8 @@ Columns:
 
 Business meaning:
 - et_design stores exam schedule / exam timetable.
-- et_design.course_id joins with courses.id.
-- et_design.subject_id joins with subjects.id.
+- et_design.course_id joins with training_calendars.id.
+- et_design.subject joins with subjects.id.
 - et_design.status = 1 means active schedule.
 
 Table: exam_design
@@ -109,6 +109,7 @@ Business meaning:
 - exam_marks.status = 1 means active mark record.
 - In this project, exam_marks.course_id joins with training_calendars.id in existing queries.
 - Then training_calendars.ct_id joins with courses.id.
+- CRITICAL: exam_marks.mark_obtained is VARCHAR. When sorting by marks, you must cast it: ORDER BY CAST(exam_marks.mark_obtained AS UNSIGNED) DESC. Without casting, alphabetical sorting will incorrectly rank non-numeric values like 'Q' at the top.
 
 Table: exam_type
 Columns:
@@ -138,7 +139,7 @@ Columns:
 Business meaning:
 - subjects stores subject details.
 - subjects.status = 1 means active subject.
-- subjects.id joins with exam_marks.subject_id, et_design.subject_id, and exam_design.subject_id.
+- subjects.id joins with exam_marks.subject_id, et_design.subject, and exam_design.subject_id.
 
 Table: users
 Columns:
@@ -178,8 +179,8 @@ Recommended Relationships:
 - exam_marks.exam_type_id = exam_type.id
 - exam_marks.course_id = training_calendars.id
 - training_calendars.ct_id = courses.id
-- et_design.course_id = courses.id
-- et_design.subject_id = subjects.id
+- et_design.course_id = training_calendars.id
+- et_design.subject = subjects.id
 - exam_design.cs_id = courses.id
 - exam_design.subject_id = subjects.id
 

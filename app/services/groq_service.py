@@ -105,6 +105,7 @@ def refine_question(question: str) -> str:
 Task:
 - Correct spelling and rewrite the question into a clear, standard English query.
 - Preserve the original intent exactly.
+- Keep all specific numbers, years, dates, names, and constraints mentioned in the original question.
 - Do NOT add new constraints, names, numbers, years, or assumptions.
 - Do NOT answer the question.
 
@@ -183,7 +184,7 @@ You will be given a User question and a RESULT CONTEXT produced by SQL.
 CRITICAL RULES:
 1) Use ONLY the RESULT CONTEXT. Do not add any new facts.
 2) Do NOT change numbers, names, dates, or counts. Repeat them exactly as in RESULT CONTEXT.
-3) If RESULT CONTEXT indicates no data, explain why briefly (e.g. "I found the trainee but they have no exam records" or "No records found for that name in your office"). Do NOT just say "No data found".
+3) If RESULT CONTEXT indicates no data or counts are zero, just state that there are no records matching the criteria. NEVER invent or hallucinate a reason.
 4) Keep it short and direct.
 5) Return ONLY the answer text. NEVER prefix the response with "Response:", "Answer:", or any other label.
 6) Start the answer immediately with the content.

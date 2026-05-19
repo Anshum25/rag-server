@@ -878,35 +878,40 @@ TEMPLATES = [
 
 def execute(query_id, params, cur, office_id):
     p = params or {}
+    print(f"[exam_queries] Executing query_id={query_id}, params={p}, office_id={office_id}")
     
-    # Blocklist of generic words that should NEVER be treated as a course/exam name
     GENERIC_WORDS = {
         "exam", "exams", "course", "courses", "marks", "mark", "performers",
         "performer", "top", "highest", "lowest", "best", "worst", "recent",
         "latest", "schedule", "schedules", "trainee", "trainees", "student",
         "students", "result", "results", "score", "scores", "all", "total",
         "overall", "general", "any", "the", "in", "for", "of", "a", "an",
+        "most", "current", "currently", "completed", "active", "test", "tests",
+        "session", "sessions", "term", "terms", "held", "conducted", "last",
+        "first", "new", "newest", "old", "oldest", "year", "years", "month",
+        "months", "day", "days"
     }
     
     def _clean_course_name(name):
         """Return None if the name is just generic words, otherwise return the cleaned name."""
         if not name:
             return None
-        cleaned = name.strip().lower()
+        import re
+        cleaned = re.sub(r'[?.!,]', '', name.strip().lower())
         # If the entire name consists of only generic/blocked words, discard it
         words = set(cleaned.split())
-        if words.issubset(GENERIC_WORDS):
+        if not words or words.issubset(GENERIC_WORDS):
             return None
         return name.strip()
     
     # 3. Exam Master Queries
     if query_id == "TOTAL_EXAM_SCHEDULES":
-        cur.execute("SELECT COUNT(*) AS total FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s", (office_id,))
+        cur.execute("SELECT COUNT(*) AS total FROM et_design ed JOIN training_calendars tc ON tc.id = ed.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s", (office_id,))
         r = cur.fetchone()
         return f"Total exam schedules: {r['total'] if r else 0}"
         
     elif query_id == "TOTAL_SUBJECTS":
-        cur.execute("SELECT COUNT(DISTINCT subject) AS total_subjects FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s", (office_id,))
+        cur.execute("SELECT COUNT(DISTINCT subject) AS total_subjects FROM et_design ed JOIN training_calendars tc ON tc.id = ed.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s", (office_id,))
         r = cur.fetchone()
         return f"Total subjects: {r['total_subjects'] if r else 0}"
         
@@ -921,7 +926,7 @@ def execute(query_id, params, cur, office_id):
         start_month = p.get("start_month")
         end_month = p.get("end_month")
         
-        base_query = "FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND ed.status = 1"
+        base_query = "FROM et_design ed JOIN training_calendars tc ON tc.id = ed.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s AND ed.status = 1"
         params_db = [office_id]
         time_str_parts = []
         
@@ -978,14 +983,14 @@ def execute(query_id, params, cur, office_id):
         return f"Total exam schedules {time_str}: {total_count}\n\nList (showing up to {limit}):\n" + "\n".join(lines)
         
     elif query_id == "UPCOMING_EXAMS":
-        cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND ed.exam_date >= CURDATE() ORDER BY ed.exam_date ASC", (office_id,))
+        cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN training_calendars tc ON tc.id = ed.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s AND ed.exam_date >= CURDATE() ORDER BY ed.exam_date ASC", (office_id,))
         rows = cur.fetchall()
         if not rows: return "No upcoming exams found."
         lines = [f"- {r.get('subject')} ({r.get('course_name')}): Date {r.get('exam_date')}" for r in rows]
         return "Upcoming Exams:\n" + "\n".join(lines)
         
     elif query_id == "COMPLETED_EXAMS":
-        cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN courses c ON c.id = ed.course_id WHERE c.office_id = %s AND ed.exam_date < CURDATE() ORDER BY ed.exam_date DESC", (office_id,))
+        cur.execute("SELECT ed.*, c.course_name FROM et_design ed JOIN training_calendars tc ON tc.id = ed.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s AND ed.exam_date < CURDATE() ORDER BY ed.exam_date DESC", (office_id,))
         rows = cur.fetchall()
         if not rows: return "No completed exams found."
         lines = [f"- {r.get('subject')} ({r.get('course_name')}): Date {r.get('exam_date')}" for r in rows]
@@ -993,7 +998,7 @@ def execute(query_id, params, cur, office_id):
         
     # 4. Exam Marks Queries
     elif query_id == "TOTAL_MARKS_RECORDS":
-        cur.execute("SELECT COUNT(*) AS total FROM exam_marks em JOIN courses c ON c.id = em.course_id WHERE c.office_id = %s", (office_id,))
+        cur.execute("SELECT COUNT(*) AS total FROM exam_marks em JOIN training_calendars tc ON tc.id = em.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s", (office_id,))
         r = cur.fetchone()
         return f"Total marks records: {r['total'] if r else 0}"
         
@@ -1041,9 +1046,10 @@ def execute(query_id, params, cur, office_id):
             SELECT s.subject_name, em.mark_obtained, s.total_mark, c.course_name, u.name AS trainee_name, u.user_code
             FROM exam_marks em
             JOIN subjects s ON s.id = em.subject_id
-            JOIN courses c ON c.id = em.course_id
+            JOIN training_calendars tc ON tc.id = em.course_id
+            JOIN courses c ON c.id = tc.ct_id
             JOIN users u ON u.id = em.user_id
-            WHERE em.user_id = %s AND c.office_id = %s
+            WHERE em.user_id = %s AND tc.office_id = %s
             ORDER BY em.id DESC
         """, (uid, office_id))
         rows = cur.fetchall()
@@ -1081,8 +1087,8 @@ def execute(query_id, params, cur, office_id):
             SELECT s.subject_name, em.mark_obtained, s.total_mark
             FROM exam_marks em
             JOIN subjects s ON s.id = em.subject_id
-            JOIN courses c ON c.id = em.course_id
-            WHERE em.user_id = %s AND em.course_id = %s AND c.office_id = %s
+            JOIN training_calendars tc ON tc.id = em.course_id
+            WHERE em.user_id = %s AND em.course_id = %s AND tc.office_id = %s
         """, (uid, cid, office_id))
         rows = cur.fetchall()
         if not rows: return f"No marks found for trainee {uid} in course {cid}."
@@ -1094,8 +1100,8 @@ def execute(query_id, params, cur, office_id):
             SELECT s.subject_name, AVG(em.mark_obtained) AS avg_marks, AVG(s.total_mark) AS total_mark
             FROM exam_marks em
             JOIN subjects s ON s.id = em.subject_id
-            JOIN courses c ON c.id = em.course_id
-            WHERE c.office_id = %s
+            JOIN training_calendars tc ON tc.id = em.course_id
+            WHERE tc.office_id = %s
             GROUP BY s.id
             ORDER BY avg_marks DESC
         """, (office_id,))
@@ -1462,7 +1468,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "ALL_MARKS_FOR_TRAINEE":
         uid = p.get("user_id")
         if not uid: return "Please specify a user_id."
-        cur.execute("SELECT em.id, c.course_name, et.title AS exam_type, s.subject_name, em.mark_obtained, em.total_mark, em.re_exam_mark, CASE em.result WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE 'Pending' END AS result, CASE em.re_exam_result WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE '-' END AS re_exam_result FROM exam_marks em JOIN courses c ON c.id = em.course_id JOIN exam_type et ON et.id = em.exam_type_id LEFT JOIN subjects s ON s.id = em.subject_id WHERE em.user_id = %s AND em.status = 1 ORDER BY em.created_at DESC", (uid,))
+        cur.execute("SELECT em.id, c.course_name, et.title AS exam_type, s.subject_name, em.mark_obtained, em.total_mark, em.re_exam_mark, CASE em.result WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE 'Pending' END AS result, CASE em.re_exam_result WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE '-' END AS re_exam_result FROM exam_marks em JOIN training_calendars tc ON tc.id = em.course_id JOIN courses c ON c.id = tc.ct_id JOIN exam_type et ON et.id = em.exam_type_id LEFT JOIN subjects s ON s.id = em.subject_id WHERE em.user_id = %s AND em.status = 1 ORDER BY em.created_at DESC", (uid,))
         rows = cur.fetchall()
         if not rows: return f"I could not find any exam records for trainee ID {uid} in your office."
         lines = [f"- {r.get('course_name')} ({r.get('exam_type')}): {r.get('mark_obtained')}/{r.get('total_mark')} - {r.get('result')}" for r in rows[:50]]
@@ -1586,7 +1592,7 @@ def execute(query_id, params, cur, office_id):
         return f"Pass/Fail Status for User {uid} in Course {cid}:\n" + "\n".join(lines)
 
     elif query_id == "OVERALL_PASS_FAIL_COUNT":
-        cur.execute("SELECT c.course_name, COUNT(DISTINCT em.user_id) AS trainees, SUM(IF(em.result=1,1,0)) AS pass_count, SUM(IF(em.result=2,1,0)) AS fail_count, ROUND(SUM(IF(em.result=1,1,0))*100.0/NULLIF(COUNT(*),0),1) AS pass_pct FROM exam_marks em JOIN courses c ON c.id = em.course_id WHERE c.office_id = %s AND em.status = 1 GROUP BY em.course_id, c.course_name ORDER BY trainees DESC", (office_id,))
+        cur.execute("SELECT c.course_name, COUNT(DISTINCT em.user_id) AS trainees, SUM(IF(em.result=1,1,0)) AS pass_count, SUM(IF(em.result=2,1,0)) AS fail_count, ROUND(SUM(IF(em.result=1,1,0))*100.0/NULLIF(COUNT(*),0),1) AS pass_pct FROM exam_marks em JOIN training_calendars tc ON tc.id = em.course_id JOIN courses c ON c.id = tc.ct_id WHERE tc.office_id = %s AND em.status = 1 GROUP BY em.course_id, c.course_name ORDER BY trainees DESC", (office_id,))
         rows = cur.fetchall()
         if not rows: return "No overall pass/fail data found."
         lines = [f"- {r.get('course_name')}: Trainees {r.get('trainees')}, Pass {r.get('pass_count')}, Fail {r.get('fail_count')} (Pass {r.get('pass_pct')}%)" for r in rows[:50]]
