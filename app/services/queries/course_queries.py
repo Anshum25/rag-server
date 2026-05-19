@@ -3,30 +3,6 @@
 import datetime
 
 TEMPLATES = [
-    {"id": "COURSE_TOTAL_COUNT", "description": "Total number of active courses / how many courses"},
-    {"id": "COURSE_LIST_ACTIVE", "description": "List active courses / show all courses"},
-    {"id": "COURSE_DETAILS_BY_NAME", "description": "Get course details by course name or course code"},
-    {"id": "COURSE_BY_COURSE_FOR", "description": "List/count courses by course_for/category/department"},
-    {"id": "COURSE_BY_GROUP", "description": "List/count courses by course group like Promotion, Refresher, Initial"},
-    {"id": "COURSE_FOR_SUMMARY", "description": "Course count grouped by course_for/category/department"},
-    {"id": "COURSE_GROUP_SUMMARY", "description": "Course count grouped by course group"},
-    {"id": "COURSE_DURATION_SUMMARY", "description": "Course duration and week days summary"},
-    {"id": "COURSE_ONLINE_EXAM_ENABLED", "description": "Courses where online exam is enabled"},
-    {"id": "COURSE_CERTIFICATE_ENABLED", "description": "Courses where certificate is enabled"},
-    {"id": "COURSE_WITH_HOSTEL", "description": "Courses with hostel facility enabled through cs_designs"},
-    {"id": "COURSE_WITH_MESS", "description": "Courses with mess facility enabled through cs_designs"},
-    {"id": "COURSE_WITH_LIBRARY", "description": "Courses with library facility enabled through cs_designs"},
-    {"id": "COURSE_FACILITY_SUMMARY", "description": "Facility summary for courses: hostel, mess, library, sports, store"},
-    {"id": "COURSE_BATCH_COUNT", "description": "Count training batches/calendars for courses"},
-    {"id": "COURSE_UPCOMING_BATCHES", "description": "Upcoming course batches from training_calendars"},
-    {"id": "COURSE_ONGOING_BATCHES", "description": "Ongoing course batches from training_calendars"},
-    {"id": "COURSE_COMPLETED_BATCHES", "description": "Completed course batches from training_calendars"},
-    {"id": "COURSE_SEAT_SUMMARY", "description": "Course/batch seat capacity summary using training_calendars.seat"},
-    {"id": "COURSE_MODULE_SUMMARY", "description": "Overall course module summary including total courses, active courses, groups, categories, batches"},
-    {"id": "COURSE_RECENT_TRAINEE_COUNT", "description": "How many students/trainees joined the most recent/latest course batch. Recent course trainees. Students in latest batch."}
-]
-
-COURSE_TEMPLATES = [
     {
         "id": "COURSE_TOTAL_COUNT",
         "module": "course",

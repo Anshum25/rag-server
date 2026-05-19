@@ -629,7 +629,7 @@ def build_attendance_sql_prompt(user_question: str, office_id: int) -> str:
 Generate exactly one SELECT query.
 Rules:
 - Use only the provided Attendance schema.
-- Always include users.office_id = {office_id} for security.
+- CRITICAL: You MUST use "JOIN users ON users.id = attendances.user_id" and filter by "users.office_id = {office_id}". Never use users.office_id without the JOIN.
 - Use status = 1 for active records.
 - Add LIMIT 50 for list queries.
 - Return SQL only, no markdown, no explanation.

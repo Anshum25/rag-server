@@ -3,65 +3,762 @@
 import datetime
 
 TEMPLATES = [
-    {"id": "TOTAL_TRAINEES", "description": "total trainees / how many trainees"},
-    {"id": "ACTIVE_TRAINEES", "description": "active trainees"},
-    {"id": "APPROVED_TRAINEES", "description": "approved trainees"},                
-    {"id": "TRAINEE_LIST", "description": "Trainee list. Params: limit, offset"},
-    {"id": "SEARCH_TRAINEE", "description": "Search trainee by name. Params: trainee_name"},
-    {"id": "TRAINEE_PROFILE", "description": "trainee profile / trainee full profile. Params: trainee_id"},
-    {"id": "TRAINEES_BY_GENDER", "description": "Trainees by gender"},
-    {"id": "TRAINEES_BY_DEPARTMENT", "description": "Trainees by department"},
-    {"id": "TRAINEES_JOINED_YEAR", "description": "joined last year / Trainees joined in year. Params: year"},
-    {"id": "TRAINEES_JOINED_MONTH_WISE", "description": "Trainees joined month-wise. Params: year"},
-    {"id": "BIRTH_YEAR_DISTRIBUTION", "description": "birth year distribution / birth year"},
-    {"id": "AGE_DISTRIBUTION", "description": "age distribution / age"},
-    {"id": "TOTAL_TRAININGS", "description": "Total training calendars"},
-    {"id": "ONGOING_TRAININGS", "description": "Ongoing trainings"},
-    {"id": "UPCOMING_TRAININGS", "description": "Upcoming trainings"},
-    {"id": "COMPLETED_TRAININGS", "description": "Completed trainings"},
-    {"id": "TRAINEES_IN_ONE_TRAINING", "description": "Trainees in one training. Params: training_calendar_id"},
-    {"id": "TRAINING_WISE_TRAINEE_COUNT", "description": "Training-wise trainee count"},
-    {"id": "TRAINEES_ENROLLED_IN_COURSE", "description": "List all trainees enrolled in a course. Params: course_id"},
-    {"id": "COURSES_TRAINEE_ATTENDED", "description": "All courses a trainee has attended. Params: user_id"},
-    {"id": "IS_TRAINEE_ENROLLED_IN_COURSE", "description": "Is a specific trainee enrolled in a course? Params: user_id, course_id"},
-    {"id": "COUNT_TRAINEES_PER_COURSE", "description": "Count trainees enrolled per course"},
-    {"id": "TRAINEES_NOT_APPROVED_IN_COURSE", "description": "Trainees not yet approved in a course. Params: course_id"},
-    {"id": "LOCAL_VS_OUTSTATION_TRAINEES", "description": "Local vs outstation trainee count per course. Params: course_id"},
-    {"id": "TRAINEES_BY_DESIGNATION_IN_COURSE", "description": "Trainees by designation in a course. Params: course_id"},
-    {"id": "TRAINEES_BY_DIVISION_ZONE_IN_COURSE", "description": "Trainees by division/zone in a course. Params: course_id"},
-    {"id": "SEARCH_TRAINEE_BY_NAME_ACROSS_COURSES", "description": "Search trainee by name across all courses. Params: name_like"},
-    {"id": "ACTIVE_TRAINING_BATCHES", "description": "List all active training batches"},
-    {"id": "RUNNING_BATCHES", "description": "Currently running batches"},
-    {"id": "UPCOMING_BATCHES_DETAILS", "description": "Upcoming batches"},
-    {"id": "DETAILS_OF_BATCH", "description": "Get details of a specific batch. Params: ct_id"},
-    {"id": "BATCHES_IN_DATE_RANGE", "description": "Batches within a date range. Params: from_date, to_date"},
-    {"id": "SEAT_AVAILABILITY_IN_BATCH", "description": "Seat availability in a batch. Params: ct_id"},
-    {"id": "BATCHES_OF_SPECIFIC_COURSE", "description": "All batches of a specific course. Params: course_id"},
-    {"id": "ATTENDANCE_FOR_TRAINEE_IN_COURSE", "description": "Attendance for a trainee in a course. Params: user_id, course_id"},
-    {"id": "DAY_WISE_ATTENDANCE_COUNT", "description": "Day-wise attendance count for a course. Params: course_id"},
-    {"id": "ATTENDANCE_PERCENTAGE_PER_TRAINEE", "description": "Attendance percentage per trainee in a course. Params: course_id"},
-    {"id": "TRAINEES_LOW_ATTENDANCE", "description": "Trainees with low attendance (below threshold). Params: course_id, min_pct"},
-    {"id": "ABSENT_ON_DATE", "description": "Who was absent on a specific date? Params: course_id, att_date"},
-    {"id": "TODAYS_ATTENDANCE_SUMMARY", "description": "Today's attendance summary for a course. Params: course_id"},
-    {"id": "ATTENDANCE_SUMMARY_FOR_TRAINEE", "description": "Attendance summary for a trainee (all courses). Params: user_id"},
-    {"id": "APPROVED_CERTIFICATES_IN_COURSE", "description": "Trainees with approved certificates in a course. Params: course_id"},
-    {"id": "PENDING_CERTIFICATE_APPROVALS", "description": "Pending certificate approvals"},
-    {"id": "CERTIFICATE_DETAILS_FOR_TRAINEE", "description": "Certificate details for a specific trainee. Params: user_id"},
-    {"id": "NOMINEES_FOR_BATCH", "description": "All nominees for a batch. Params: ct_id"},
-    {"id": "PENDING_NOMINEE_APPROVALS", "description": "Pending nominee approvals"},
-    {"id": "NOMINEE_COUNT_PER_COURSE", "description": "Nominee count per course"},
-    {"id": "LINEN_ISSUED_IN_COURSE", "description": "Linen issued to trainees in a course. Params: course_id"},
-    {"id": "LINEN_PENDING_RETURNS", "description": "Linen not yet returned (pending returns). Params: course_id"},
-    {"id": "ALL_FIELD_TRAINING_RECORDS", "description": "All field training records. Params: course_id"},
-    {"id": "FIELD_TRAINING_BY_YEAR", "description": "Field training by year. Params: year"},
-    {"id": "LEAVE_RECORDS_FOR_USER", "description": "Leave records for a user. Params: user_id"},
-    {"id": "TRAINEES_ON_LEAVE_TODAY", "description": "Trainees on leave today"},
-    {"id": "TRAINEE_ENROLLMENT_TREND", "description": "Trainee count per month (enrollment trend). Params: year"},
-    {"id": "TOP_COURSES_BY_TRAINEE_COUNT", "description": "Top courses by trainee count"},
-    {"id": "DEPARTMENT_WISE_TRAINEE_COUNT", "description": "Department-wise trainee count"},
-    {"id": "COMPLETE_TRAINING_HISTORY", "description": "Complete training history of a trainee. Params: user_id"},
-    {"id": "PASS_RATE_VS_ATTENDANCE", "description": "Pass rate vs attendance correlation. Params: course_id"}
+    {
+        "id": "TOTAL_TRAINEES",
+        "module": "trainee",
+        "description": "Total trainees / how many trainees",
+        "example_questions": [
+            "Total trainees / how many trainees"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "ACTIVE_TRAINEES",
+        "module": "trainee",
+        "description": "Active trainees",
+        "example_questions": [
+            "Active trainees / Currently Enrolled Trainees"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "APPROVED_TRAINEES",
+        "module": "trainee",
+        "description": "Approved trainees",
+        "example_questions": [
+            "Approved trainees"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEE_LIST",
+        "module": "trainee",
+        "description": "Trainee list",
+        "example_questions": [
+            "Trainee list"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "limit", "offset"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "SEARCH_TRAINEE",
+        "module": "trainee",
+        "description": "Search trainee by name",
+        "example_questions": [
+            "Search trainee by name"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "trainee_name"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEE_PROFILE",
+        "module": "trainee",
+        "description": "Trainee profile / trainee full profile",
+        "example_questions": [
+            "Trainee profile / trainee full profile"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "trainee_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_BY_GENDER",
+        "module": "trainee",
+        "description": "Trainees by gender",
+        "example_questions": [
+            "Trainees by gender"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_BY_DEPARTMENT",
+        "module": "trainee",
+        "description": "Trainees by department",
+        "example_questions": [
+            "Trainees by department"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_JOINED_YEAR",
+        "module": "trainee",
+        "description": "Joined last year / trainees joined in year",
+        "example_questions": [
+            "Joined last year / trainees joined in year"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "year"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_JOINED_MONTH_WISE",
+        "module": "trainee",
+        "description": "Trainees joined month-wise",
+        "example_questions": [
+            "Trainees joined month-wise"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "year"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "BIRTH_YEAR_DISTRIBUTION",
+        "module": "trainee",
+        "description": "Birth year distribution / birth year",
+        "example_questions": [
+            "Birth year distribution / birth year"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "AGE_DISTRIBUTION",
+        "module": "trainee",
+        "description": "Age distribution / age",
+        "example_questions": [
+            "Age distribution / age"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "TOTAL_TRAININGS",
+        "module": "trainee",
+        "description": "Total training calendars",
+        "example_questions": [
+            "Total training calendars"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "ONGOING_TRAININGS",
+        "module": "trainee",
+        "description": "Ongoing trainings",
+        "example_questions": [
+            "Ongoing trainings"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "UPCOMING_TRAININGS",
+        "module": "trainee",
+        "description": "Upcoming trainings",
+        "example_questions": [
+            "Upcoming trainings"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "COMPLETED_TRAININGS",
+        "module": "trainee",
+        "description": "Completed trainings",
+        "example_questions": [
+            "Completed trainings"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_IN_ONE_TRAINING",
+        "module": "trainee",
+        "description": "Trainees in one training",
+        "example_questions": [
+            "Trainees in one training"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "training_calendar_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINING_WISE_TRAINEE_COUNT",
+        "module": "trainee",
+        "description": "Training-wise trainee count",
+        "example_questions": [
+            "Training-wise trainee count"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_ENROLLED_IN_COURSE",
+        "module": "trainee",
+        "description": "List all trainees enrolled in a course",
+        "example_questions": [
+            "List all trainees enrolled in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "COURSES_TRAINEE_ATTENDED",
+        "module": "trainee",
+        "description": "All courses a trainee has attended",
+        "example_questions": [
+            "All courses a trainee has attended"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "IS_TRAINEE_ENROLLED_IN_COURSE",
+        "module": "trainee",
+        "description": "Is a specific trainee enrolled in a course? params: user_id, course_id",
+        "example_questions": [
+            "Is a specific trainee enrolled in a course? params: user_id, course_id"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "COUNT_TRAINEES_PER_COURSE",
+        "module": "trainee",
+        "description": "Count trainees enrolled per course",
+        "example_questions": [
+            "Count trainees enrolled per course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_NOT_APPROVED_IN_COURSE",
+        "module": "trainee",
+        "description": "Trainees not yet approved in a course",
+        "example_questions": [
+            "Trainees not yet approved in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "LOCAL_VS_OUTSTATION_TRAINEES",
+        "module": "trainee",
+        "description": "Local vs outstation trainee count per course",
+        "example_questions": [
+            "Local vs outstation trainee count per course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_BY_DESIGNATION_IN_COURSE",
+        "module": "trainee",
+        "description": "Trainees by designation in a course",
+        "example_questions": [
+            "Trainees by designation in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_BY_DIVISION_ZONE_IN_COURSE",
+        "module": "trainee",
+        "description": "Trainees by division/zone in a course",
+        "example_questions": [
+            "Trainees by division/zone in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "SEARCH_TRAINEE_BY_NAME_ACROSS_COURSES",
+        "module": "trainee",
+        "description": "Search trainee by name across all courses",
+        "example_questions": [
+            "Search trainee by name across all courses"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "name_like"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "ACTIVE_TRAINING_BATCHES",
+        "module": "trainee",
+        "description": "List all active training batches",
+        "example_questions": [
+            "List all active training batches"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "RUNNING_BATCHES",
+        "module": "trainee",
+        "description": "Currently running batches",
+        "example_questions": [
+            "Currently running batches"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "UPCOMING_BATCHES_DETAILS",
+        "module": "trainee",
+        "description": "Upcoming batches",
+        "example_questions": [
+            "Upcoming batches"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "DETAILS_OF_BATCH",
+        "module": "trainee",
+        "description": "Get details of a specific batch",
+        "example_questions": [
+            "Get details of a specific batch"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "ct_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "BATCHES_IN_DATE_RANGE",
+        "module": "trainee",
+        "description": "Batches within a date range",
+        "example_questions": [
+            "Batches within a date range"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "from_date", "to_date"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "SEAT_AVAILABILITY_IN_BATCH",
+        "module": "trainee",
+        "description": "Seat availability in a batch",
+        "example_questions": [
+            "Seat availability in a batch"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "ct_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "BATCHES_OF_SPECIFIC_COURSE",
+        "module": "trainee",
+        "description": "All batches of a specific course",
+        "example_questions": [
+            "All batches of a specific course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "ATTENDANCE_FOR_TRAINEE_IN_COURSE",
+        "module": "trainee",
+        "description": "Attendance for a trainee in a course",
+        "example_questions": [
+            "Attendance for a trainee in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "DAY_WISE_ATTENDANCE_COUNT",
+        "module": "trainee",
+        "description": "Day-wise attendance count for a course",
+        "example_questions": [
+            "Day-wise attendance count for a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "ATTENDANCE_PERCENTAGE_PER_TRAINEE",
+        "module": "trainee",
+        "description": "Attendance percentage per trainee in a course",
+        "example_questions": [
+            "Attendance percentage per trainee in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_LOW_ATTENDANCE",
+        "module": "trainee",
+        "description": "Trainees with low attendance (below threshold)",
+        "example_questions": [
+            "Trainees with low attendance (below threshold)"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id", "min_pct"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "ABSENT_ON_DATE",
+        "module": "trainee",
+        "description": "Who was absent on a specific date? params: course_id, att_date",
+        "example_questions": [
+            "Who was absent on a specific date? params: course_id, att_date"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TODAYS_ATTENDANCE_SUMMARY",
+        "module": "trainee",
+        "description": "Today's attendance summary for a course",
+        "example_questions": [
+            "Today's attendance summary for a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "ATTENDANCE_SUMMARY_FOR_TRAINEE",
+        "module": "trainee",
+        "description": "Attendance summary for a trainee (all courses)",
+        "example_questions": [
+            "Attendance summary for a trainee (all courses)"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "APPROVED_CERTIFICATES_IN_COURSE",
+        "module": "trainee",
+        "description": "Trainees with approved certificates in a course",
+        "example_questions": [
+            "Trainees with approved certificates in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "PENDING_CERTIFICATE_APPROVALS",
+        "module": "trainee",
+        "description": "Pending certificate approvals",
+        "example_questions": [
+            "Pending certificate approvals"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "CERTIFICATE_DETAILS_FOR_TRAINEE",
+        "module": "trainee",
+        "description": "Certificate details for a specific trainee",
+        "example_questions": [
+            "Certificate details for a specific trainee"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "NOMINEES_FOR_BATCH",
+        "module": "trainee",
+        "description": "All nominees for a batch",
+        "example_questions": [
+            "All nominees for a batch"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "ct_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "PENDING_NOMINEE_APPROVALS",
+        "module": "trainee",
+        "description": "Pending nominee approvals",
+        "example_questions": [
+            "Pending nominee approvals"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "NOMINEE_COUNT_PER_COURSE",
+        "module": "trainee",
+        "description": "Nominee count per course",
+        "example_questions": [
+            "Nominee count per course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "LINEN_ISSUED_IN_COURSE",
+        "module": "trainee",
+        "description": "Linen issued to trainees in a course",
+        "example_questions": [
+            "Linen issued to trainees in a course"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "LINEN_PENDING_RETURNS",
+        "module": "trainee",
+        "description": "Linen not yet returned (pending returns)",
+        "example_questions": [
+            "Linen not yet returned (pending returns)"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "ALL_FIELD_TRAINING_RECORDS",
+        "module": "trainee",
+        "description": "All field training records",
+        "example_questions": [
+            "All field training records"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "FIELD_TRAINING_BY_YEAR",
+        "module": "trainee",
+        "description": "Field training by year",
+        "example_questions": [
+            "Field training by year"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "year"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "LEAVE_RECORDS_FOR_USER",
+        "module": "trainee",
+        "description": "Leave records for a user",
+        "example_questions": [
+            "Leave records for a user"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEES_ON_LEAVE_TODAY",
+        "module": "trainee",
+        "description": "Trainees on leave today",
+        "example_questions": [
+            "Trainees on leave today"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "TRAINEE_ENROLLMENT_TREND",
+        "module": "trainee",
+        "description": "Trainee count per month (enrollment trend)",
+        "example_questions": [
+            "Trainee count per month (enrollment trend)"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "year"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    },
+    {
+        "id": "TOP_COURSES_BY_TRAINEE_COUNT",
+        "module": "trainee",
+        "description": "Top courses by trainee count",
+        "example_questions": [
+            "Top courses by trainee count"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "DEPARTMENT_WISE_TRAINEE_COUNT",
+        "module": "trainee",
+        "description": "Department-wise trainee count",
+        "example_questions": [
+            "Department-wise trainee count"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "count",
+        "security_level": "low"
+    },
+    {
+        "id": "COMPLETE_TRAINING_HISTORY",
+        "module": "trainee",
+        "description": "Complete training history of a trainee",
+        "example_questions": [
+            "Complete training history of a trainee"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "user_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "list",
+        "security_level": "low"
+    },
+    {
+        "id": "PASS_RATE_VS_ATTENDANCE",
+        "module": "trainee",
+        "description": "Pass rate vs attendance correlation",
+        "example_questions": [
+            "Pass rate vs attendance correlation"
+        ],
+        "required_params": [],
+        "optional_params": ["office_id", "course_id"],
+        "allowed_roles": ["principal", "admin", "course_admin"],
+        "result_type": "summary",
+        "security_level": "low"
+    }
 ]
+
 
 def execute(query_id, params, cur, office_id):
     p = params or {}
@@ -347,7 +1044,7 @@ def execute(query_id, params, cur, office_id):
         uid = p.get("user_id")
         cid = p.get("course_id")
         if not uid or not cid: return "Please specify user_id and course_id."
-        cur.execute("SELECT DATE(punch_time) AS att_date, punch_time, punch, CASE a_b WHEN 0 THEN 'Present' WHEN 1 THEN 'Absent' END AS status, remarks FROM attendances WHERE user_id = %s AND course_id = %s AND status = 1 ORDER BY punch_time", (uid, cid))
+        cur.execute("SELECT DATE(punch_time) AS att_date, punch_time, punch, CASE punch WHEN '4' THEN 'Present' WHEN '5' THEN 'Absent' WHEN '1' THEN 'CL' WHEN '2' THEN 'LAP' WHEN '3' THEN 'SL' ELSE 'Unknown' END AS status, remarks FROM attendances WHERE user_id = %s AND course_id = %s AND status = 1 ORDER BY punch_time", (uid, cid))
         rows = cur.fetchall()
         if not rows: return "No attendance records found."
         lines = [f"- {r.get('att_date')}: {r.get('status')} ({r.get('punch')})" for r in rows[:50]]
@@ -356,7 +1053,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "DAY_WISE_ATTENDANCE_COUNT":
         cid = p.get("course_id")
         if not cid: return "Please specify course_id."
-        cur.execute("SELECT DATE(punch_time) AS att_date, COUNT(*) AS total_punches, SUM(IF(a_b=0,1,0)) AS present, SUM(IF(a_b=1,1,0)) AS absent FROM attendances WHERE course_id = %s AND status = 1 GROUP BY DATE(punch_time) ORDER BY att_date", (cid,))
+        cur.execute("SELECT DATE(punch_time) AS att_date, COUNT(*) AS total_punches, SUM(IF(punch='4',1,0)) AS present, SUM(IF(punch='5',1,0)) AS absent FROM attendances WHERE course_id = %s AND status = 1 GROUP BY DATE(punch_time) ORDER BY att_date", (cid,))
         rows = cur.fetchall()
         if not rows: return "No day-wise attendance data found."
         lines = [f"- {r.get('att_date')}: {r.get('present')} Present, {r.get('absent')} Absent" for r in rows[:50]]
@@ -365,7 +1062,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "ATTENDANCE_PERCENTAGE_PER_TRAINEE":
         cid = p.get("course_id")
         if not cid: return "Please specify course_id."
-        cur.execute("SELECT u.name, u.user_code, COUNT(a.id) AS total_days, SUM(IF(a.a_b=0,1,0)) AS present_days, SUM(IF(a.a_b=1,1,0)) AS absent_days, ROUND(SUM(IF(a.a_b=0,1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND a.status = 1 GROUP BY a.user_id, u.name, u.user_code ORDER BY att_pct DESC", (cid,))
+        cur.execute("SELECT u.name, u.user_code, COUNT(a.id) AS total_days, SUM(IF(a.punch='4',1,0)) AS present_days, SUM(IF(a.punch='5',1,0)) AS absent_days, ROUND(SUM(IF(a.punch='4',1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND a.status = 1 GROUP BY a.user_id, u.name, u.user_code ORDER BY att_pct DESC", (cid,))
         rows = cur.fetchall()
         if not rows: return "No attendance percentage data found."
         lines = [f"- {r.get('name')}: {r.get('att_pct')}% ({r.get('present_days')}/{r.get('total_days')} days)" for r in rows[:50]]
@@ -375,7 +1072,7 @@ def execute(query_id, params, cur, office_id):
         cid = p.get("course_id")
         min_pct = p.get("min_pct", 75)
         if not cid: return "Please specify course_id."
-        cur.execute("SELECT u.name, u.user_code, u.mobile, COUNT(a.id) AS total_days, SUM(IF(a.a_b=0,1,0)) AS present, ROUND(SUM(IF(a.a_b=0,1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND a.status = 1 GROUP BY a.user_id, u.name, u.user_code HAVING att_pct < %s ORDER BY att_pct ASC", (cid, min_pct))
+        cur.execute("SELECT u.name, u.user_code, u.mobile, COUNT(a.id) AS total_days, SUM(IF(a.punch='4',1,0)) AS present, ROUND(SUM(IF(a.punch='4',1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND a.status = 1 GROUP BY a.user_id, u.name, u.user_code HAVING att_pct < %s ORDER BY att_pct ASC", (cid, min_pct))
         rows = cur.fetchall()
         if not rows: return "No trainees with low attendance."
         lines = [f"- {r.get('name')}: {r.get('att_pct')}% ({r.get('present')}/{r.get('total_days')} days)" for r in rows[:50]]
@@ -385,7 +1082,7 @@ def execute(query_id, params, cur, office_id):
         cid = p.get("course_id")
         att_date = p.get("att_date")
         if not cid or not att_date: return "Please specify course_id and att_date."
-        cur.execute("SELECT u.name, u.user_code, u.mobile, u.designation FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND DATE(a.punch_time) = %s AND a.a_b = 1 AND a.status = 1 ORDER BY u.name", (cid, att_date))
+        cur.execute("SELECT u.name, u.user_code, u.mobile, u.designation FROM attendances a JOIN users u ON u.id = a.user_id WHERE a.course_id = %s AND DATE(a.punch_time) = %s AND a.punch = '5' AND a.status = 1 ORDER BY u.name", (cid, att_date))
         rows = cur.fetchall()
         if not rows: return "No one was absent on this date."
         lines = [f"- {r.get('name')} ({r.get('designation')})" for r in rows[:50]]
@@ -394,7 +1091,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "TODAYS_ATTENDANCE_SUMMARY":
         cid = p.get("course_id")
         if not cid: return "Please specify course_id."
-        cur.execute("SELECT COUNT(*) AS total_punched, SUM(IF(a_b=0,1,0)) AS present, SUM(IF(a_b=1,1,0)) AS absent FROM attendances WHERE course_id = %s AND DATE(punch_time) = CURDATE() AND status = 1", (cid,))
+        cur.execute("SELECT COUNT(*) AS total_punched, SUM(IF(punch='4',1,0)) AS present, SUM(IF(punch='5',1,0)) AS absent FROM attendances WHERE course_id = %s AND DATE(punch_time) = CURDATE() AND status = 1", (cid,))
         r = cur.fetchone()
         if not r: return "No attendance recorded today."
         return f"Today's Attendance Summary in Course {cid}:\nTotal: {r.get('total_punched')}\nPresent: {r.get('present')}\nAbsent: {r.get('absent')}"
@@ -402,7 +1099,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "ATTENDANCE_SUMMARY_FOR_TRAINEE":
         uid = p.get("user_id")
         if not uid: return "Please specify user_id."
-        cur.execute("SELECT c.course_name, COUNT(a.id) AS total_days, SUM(IF(a.a_b=0,1,0)) AS present, SUM(IF(a.a_b=1,1,0)) AS absent, ROUND(SUM(IF(a.a_b=0,1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN courses c ON c.id = a.course_id WHERE a.user_id = %s AND a.status = 1 GROUP BY a.course_id, c.course_name ORDER BY att_pct", (uid,))
+        cur.execute("SELECT c.course_name, COUNT(a.id) AS total_days, SUM(IF(a.punch='4',1,0)) AS present, SUM(IF(a.punch='5',1,0)) AS absent, ROUND(SUM(IF(a.punch='4',1,0))*100.0/NULLIF(COUNT(a.id),0),1) AS att_pct FROM attendances a JOIN courses c ON c.id = a.course_id WHERE a.user_id = %s AND a.status = 1 GROUP BY a.course_id, c.course_name ORDER BY att_pct", (uid,))
         rows = cur.fetchall()
         if not rows: return "No attendance summary found."
         lines = [f"- {r.get('course_name')}: {r.get('att_pct')}% ({r.get('present')} Present, {r.get('absent')} Absent)" for r in rows[:50]]
@@ -541,7 +1238,7 @@ def execute(query_id, params, cur, office_id):
     elif query_id == "PASS_RATE_VS_ATTENDANCE":
         cid = p.get("course_id")
         if not cid: return "Please specify course_id."
-        cur.execute("SELECT u.name, u.user_code, ROUND(SUM(IF(a.a_b=0,1,0))*100.0/NULLIF(COUNT(DISTINCT DATE(a.punch_time)),0),1) AS att_pct, MAX(CAST(em.mark_obtained AS UNSIGNED)) AS best_mark, MAX(em.total_mark) AS total_mark, CASE MAX(em.result) WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE 'Pending' END AS result FROM tra_masters tm JOIN users u ON u.id = tm.user_id LEFT JOIN attendances a ON a.user_id = tm.user_id AND a.course_id = tm.course_id LEFT JOIN exam_marks em ON em.user_id = tm.user_id AND em.course_id = tm.course_id WHERE tm.course_id = %s AND tm.status = 1 GROUP BY tm.user_id, u.name, u.user_code ORDER BY att_pct DESC", (cid,))
+        cur.execute("SELECT u.name, u.user_code, ROUND(SUM(IF(a.punch='4',1,0))*100.0/NULLIF(COUNT(DISTINCT DATE(a.punch_time)),0),1) AS att_pct, MAX(CAST(em.mark_obtained AS UNSIGNED)) AS best_mark, MAX(em.total_mark) AS total_mark, CASE MAX(em.result) WHEN 1 THEN 'Pass' WHEN 2 THEN 'Fail' ELSE 'Pending' END AS result FROM tra_masters tm JOIN users u ON u.id = tm.user_id LEFT JOIN attendances a ON a.user_id = tm.user_id AND a.course_id = tm.course_id LEFT JOIN exam_marks em ON em.user_id = tm.user_id AND em.course_id = tm.course_id WHERE tm.course_id = %s AND tm.status = 1 GROUP BY tm.user_id, u.name, u.user_code ORDER BY att_pct DESC", (cid,))
         rows = cur.fetchall()
         if not rows: return "No data found."
         lines = [f"- {r.get('name')}: Att {r.get('att_pct')}%, Marks {r.get('best_mark')}/{r.get('total_mark')} ({r.get('result')})" for r in rows[:50]]

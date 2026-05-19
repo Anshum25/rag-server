@@ -89,9 +89,11 @@ Recommended relationships:
 - users.office_id for office filtering
 
 Common question mapping:
-- Attendance by date: Filter attendances.punch_time
-- Present trainees: attendances records for the day
-- Absent trainees: trainees in course but no attendance record
+- Attendance by date: Filter DATE(attendances.punch_time)
+- Present trainees: attendances.punch = '4'
+- Absent trainees: attendances.punch = '5'
+- On Leave (CL/LAP/SL): attendances.punch IN ('1', '2', '3')
+- Punch status meaning: 4=Present, 5=Absent(AB), 1=CL, 2=LAP, 3=SL
 - Punch count: Count attendances records
 - Course-wise attendance: Group by training_calendars -> courses
 """
