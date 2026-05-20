@@ -650,7 +650,7 @@ Rules:
 - Prefer hostel_masters.office_id = {office_id} for allotment/stay queries.
 - Use hostel_buildings.office_id = {office_id} for building queries.
 - Use hostel_rooms.office_id = {office_id} for room queries.
-- For "currently staying" / "occupancy" queries, use: (h_status = 1 OR h_status = '1') AND (out_date IS NULL OR out_date = '0000-00-00' OR out_date >= CURDATE())
+- For "currently staying" / "occupancy" queries, use: (h_status = 1 OR h_status = '1') AND (out_date IS NULL OR out_date >= CURDATE())
 - Use status = 1 for active records where applicable.
 - Add LIMIT 50 for list/detail queries.
 - Return SQL only.
@@ -661,15 +661,32 @@ Rules:
 SQL behavior:
 - For trainee name search, use: LOWER(users.name) LIKE LOWER('%name%')
 - For building name search, use: LOWER(hostel_buildings.building_name) LIKE LOWER('%name%')
-- For occupied rooms: rooms that appear in hostel_masters with (h_status = 1 OR h_status = '1')
-- For vacant rooms: rooms NOT IN occupied rooms
+- For count of occupied rooms: COUNT(DISTINCT room_id) in hostel_masters with (h_status = 1 OR h_status = '1') and active dates. (Do not count total rows/allotments as rooms, since multiple trainees share the same room).
+- For count of occupied beds / staying trainees: count of rows (COUNT(*)) in hostel_masters with (h_status = 1 OR h_status = '1') and active dates.
+- For vacant/available rooms: rooms NOT IN (SELECT room_id FROM hostel_masters WHERE h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()))
 - For full rooms: WHERE occupied_count >= room_beds
 - For check-in today: DATE(hostel_masters.in_date) = CURDATE()
-- For check-out today: DATE(hostel_masters.out_date) = CURDATE() AND out_date != '0000-00-00'
-- For overstay: (h_status = 1 OR h_status = '1') AND out_date < CURDATE() AND out_date != '0000-00-00'
+- For check-out today: DATE(hostel_masters.out_date) = CURDATE()
+- For overstay: (h_status = 1 OR h_status = '1') AND out_date < CURDATE()
 - For ladies hostel: building_name LIKE '%ladies%'
 - For AC rooms: hostel_rooms.ac = 'Y'
 - For rooms with toilet: hostel_rooms.toilet = 'Y'
+- For female/male rooms and beds (no direct gender column on rooms/beds):
+  - A room is occupied by female trainees if it has an active allotment where users.gender = 'F' and h_status = 1 and (out_date IS NULL OR out_date >= CURDATE()).
+  - Whenever referencing user columns (like users.gender) in a query on hostel_masters, you MUST join the users table on users.id = hostel_masters.user_id.
+- To prevent row multiplication / double-counting:
+  - NEVER join hostel_buildings and hostel_rooms when performing SUM(room_beds) or SUM(bed_capacity). Summing room_beds should be done directly on hostel_rooms. Summing bed_capacity should be done directly on hostel_buildings. Joining them in the same query multiplies the capacities.
+  - When counting available/vacant rooms or beds, DO NOT JOIN hostel_masters in the main FROM clause. Instead, select from hostel_rooms and use NOT IN (subquery on hostel_masters) or LEFT JOIN with a WHERE hm.id IS NULL condition. Joining hostel_masters directly in the FROM clause will incorrectly exclude completely empty rooms that have no history in hostel_masters.
+  - Avoid using undefined table aliases. For example, do not use `hr.room_beds` or `hr.status` unless `hostel_rooms hr` (or `hostel_rooms AS hr`) is defined in the same subquery or FROM clause.
+  - When retrieving multiple independent summaries/aggregates (e.g. counting total beds and total rooms and available rooms by gender in one query), select them as independent subqueries without an outer FROM clause (e.g., SELECT (SELECT SUM(...) ...) AS total_beds, (SELECT COUNT(...) ...) AS total_rooms). Do not add a FROM clause or table aliases to the outer SELECT statement.
+- Use these exact column aliases for gender-wise summaries, using these exact subquery definitions:
+  - `total_beds` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id})
+  - `vacant_beds_for_males` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})) - (SELECT COUNT(*) FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})
+  - `vacant_beds_for_females` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})) - (SELECT COUNT(*) FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})
+  - `total_rooms` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id})
+  - `vacant_rooms_for_males` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id}))
+  - `vacant_rooms_for_females` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id}))
+- Every single subquery (including subqueries inside SELECT, WHERE, IN, or NOT IN clauses) MUST include its own `office_id = {office_id}` condition on every table that has an `office_id` column. Never omit the office filter from any subquery.
 
 Schema:
 {get_dynamic_schemas(user_question, HOSTEL_SCHEMA, "hostel")}

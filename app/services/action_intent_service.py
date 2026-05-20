@@ -29,7 +29,7 @@ def detect_action_intent(message: str) -> dict:
     text = message.lower()
     
     # Exclude non-action questions
-    if any(q in text for q in ["how many", "show", "list", "who", "what", "where", "when", "why"]):
+    if any(q in text for q in ["how", "show", "list", "who", "what", "where", "when", "why"]):
         return {"is_action": False, "action": None, "module": None, "operation": None, "confidence": 0.0}
 
     words = set(re.findall(r'\b\w+\b', text))

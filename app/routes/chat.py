@@ -566,6 +566,36 @@ class ChatRequest(BaseModel):
     session_id: str = None  # Optional session ID for report grouping
 
 
+def _is_procedural_question(message: str) -> bool:
+    """Check if the question is asking about a process, procedure, rules, guidelines, or instructions."""
+    text = message.lower()
+    
+    # 1. Phrases that strongly indicate procedural queries
+    procedural_phrases = [
+        "process of", "process for", "process to", "process about",
+        "procedure of", "procedure for", "procedure to", "procedure about",
+        "how to", "how do i", "how can i", "how we can",
+        "step by step", "steps to", "steps for", "steps of",
+        "guideline", "guidelines",
+        "rulebook", "rule book", "rules for", "rules of",
+        "policy for", "policy of", "policies of", "policies for",
+        "disciplinary action", "discretionary quota",
+        "instruction for", "instructions for", "instruction of", "instructions of",
+        "what is the process", "what is process",
+        "what is the procedure", "what is procedure"
+    ]
+    
+    if any(phrase in text for phrase in procedural_phrases):
+        return True
+        
+    # 2. Check if it's asking a "how" or "what" question about action verbs without asking for data records/counts
+    if ("how" in text or "what" in text) and any(verb in text for verb in ["add", "create", "register", "allot", "assign", "enroll"]):
+        if not any(data_kw in text for data_kw in ["how many", "list of", "records", "show", "count"]):
+            return True
+            
+    return False
+
+
 def _is_data_question(message: str) -> bool:
     """Check if the message is asking about data/analytics (exam, hostel, trainee)."""
     text = message.lower()
@@ -736,6 +766,15 @@ def chat(request: ChatRequest, http_request: Request = None):
             if "not access" in lowered or "cannot access" in lowered or "can't access" in lowered:
                 return _respond(describe_restricted_access(user_role))
             return _respond(describe_access(user_role))
+
+        # --- Procedural / Process / Q&A queries (Bypass data/SQL pipeline) ---
+        if _is_procedural_question(user_message):
+            print(f"[Chat] Procedural/Process question detected: '{user_message}'. Bypassing SQL pipeline to Qdrant/RAG...")
+            refined = refine_question(user_message)
+            qdrant_answer = _qdrant_fallback(refined, office_id, user_role)
+            if qdrant_answer:
+                return _respond(qdrant_answer)
+            return _respond(generate_answer(refined, ""))
 
         # --- General / greeting questions (no data needed) ---
         if not _is_data_question(user_message):
