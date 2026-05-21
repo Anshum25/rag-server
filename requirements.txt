@@ -2,10 +2,9 @@ fastapi
 uvicorn
 python-dotenv
 qdrant-client
-groq
+openai
 pymysql
 requests
 pydantic
 langchain
 langchain-core
-langchain-groq

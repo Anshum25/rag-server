@@ -2,7 +2,7 @@
 
 Flow:
 1. Build prompt with module-specific schema (no credentials/raw data).
-2. Call Groq to generate a SELECT-only SQL query.
+2. Call the configured OpenAI-compatible LLM to generate a SELECT-only SQL query.
 3. Validate SQL strictly before execution.
 4. Execute against DB and return result dict.
 """
@@ -30,9 +30,7 @@ from app.services.schema.pass_eq_schema import PASS_EQ_SCHEMA
 from app.services.schema.field_study_tour_schema import FIELD_STUDY_TOUR_SCHEMA
 from app.services.schema.master_admin_schema import MASTER_ADMIN_SCHEMA
 from app.services.db_service import get_connection
-
-# Reuse Groq client + model from existing groq_service (single source of truth)
-from app.services.groq_service import client as groq_client, MODEL as GROQ_MODEL
+from app.services.llm_service import call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -404,17 +402,28 @@ def _validate_sql(sql: str, office_id: int, allowed_tables: list, module_label: 
 
 
 def _generate_sql(prompt: str, module_label: str) -> str:
-    """Call Groq with a prompt and return cleaned SQL."""
+    """Call the configured LLM with a strict SQL prompt and return cleaned SQL."""
     try:
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        raw = call_llm(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You generate safe MySQL SELECT queries only. "
+                        "Return only one MySQL SELECT query. No markdown. No explanation. "
+                        "No comments. If unsure, return exactly UNSUPPORTED_QUERY. "
+                        "Use only the provided schema. Always include the required office_id filter. "
+                        "Add LIMIT 50 for list/detail queries."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
             temperature=0.0,
+            max_tokens=800,
         )
-        raw = (response.choices[0].message.content or "").strip()
         return clean_llm_sql(raw)
     except Exception as e:
-        logger.error(f"[SQL Fallback/{module_label}] Groq call failed: {e}")
+        logger.error(f"[SQL Fallback/{module_label}] LLM call failed: {e}")
         return "UNSUPPORTED_QUERY"
 
 
@@ -490,7 +499,7 @@ CRITICAL SQL GENERATION RULES:
 # ===========================================================================
 
 def build_exam_sql_prompt(user_question: str, office_id: int) -> str:
-    """Build a Groq prompt that includes only schema — never credentials."""
+    """Build an LLM prompt that includes only schema — never credentials."""
     return f"""You are a MySQL SQL generator for TRMS Exam module.
 
 Generate exactly one SQL query.
@@ -520,8 +529,9 @@ SQL behavior:
 - For fail count, use exam_marks.result = 2.
 - For not appeared count, use exam_marks.result = 0.
 - For year filtering, use YEAR(training_calendars.from_date) or YEAR(et_design.exam_date), depending on question.
-- CRITICAL: exam_marks.mark_obtained is VARCHAR. When sorting by marks (highest/lowest/toppers), ALWAYS use: ORDER BY CAST(exam_marks.mark_obtained AS UNSIGNED) DESC (or ASC). If you do not CAST, alphabetical sorting will put non-numeric marks like 'Q' (Qualified) at the top.
 - For month filtering, use MONTH(training_calendars.from_date) or MONTH(et_design.exam_date), depending on question.
+- CRITICAL: exam_marks table does NOT have an exam_date column. To filter exam marks by date/year/month, you must join training_calendars tc ON tc.id = exam_marks.course_id and use tc.from_date (e.g. YEAR(tc.from_date) = YEAR(CURDATE())).
+- CRITICAL: exam_marks.mark_obtained is VARCHAR. When sorting by marks (highest/lowest/toppers), ALWAYS use: ORDER BY CAST(exam_marks.mark_obtained AS UNSIGNED) DESC (or ASC). If you do not CAST, alphabetical sorting will put non-numeric marks like 'Q' (Qualified) at the top.
 
 Schema:
 {get_dynamic_schemas(user_question, EXAM_SCHEMA, "exam")}
@@ -534,7 +544,7 @@ SQL:
 
 
 def generate_exam_sql(user_question: str, office_id: int) -> str:
-    """Call Groq with the exam schema prompt and return cleaned SQL."""
+    """Call the configured LLM with the exam schema prompt and return cleaned SQL."""
     prompt = build_exam_sql_prompt(user_question, office_id)
     return _generate_sql(prompt, "Exam")
 
@@ -555,7 +565,7 @@ def run_exam_sql_fallback(user_question: str, office_id: int) -> dict:
 # ===========================================================================
 
 def build_trainee_sql_prompt(user_question: str, office_id: int) -> str:
-    """Build a Groq prompt for Trainee module — only schema, never credentials."""
+    """Build an LLM prompt for Trainee module — only schema, never credentials."""
     return f"""You are a MySQL SQL generator for TRMS Trainee module.
 
 Generate exactly one SQL query.
@@ -614,7 +624,7 @@ SQL:
 
 
 def generate_trainee_sql(user_question: str, office_id: int) -> str:
-    """Call Groq with the trainee schema prompt and return cleaned SQL."""
+    """Call the configured LLM with the trainee schema prompt and return cleaned SQL."""
     prompt = build_trainee_sql_prompt(user_question, office_id)
     return _generate_sql(prompt, "Trainee")
 
@@ -635,7 +645,7 @@ def run_trainee_sql_fallback(user_question: str, office_id: int) -> dict:
 # ===========================================================================
 
 def build_hostel_sql_prompt(user_question: str, office_id: int) -> str:
-    """Build a Groq prompt for Hostel module — only schema, never credentials."""
+    """Build an LLM prompt for Hostel module — only schema, never credentials."""
     return f"""You are a MySQL SQL generator for TRMS Hostel module.
 
 Generate exactly one SQL query.
@@ -671,22 +681,11 @@ SQL behavior:
 - For ladies hostel: building_name LIKE '%ladies%'
 - For AC rooms: hostel_rooms.ac = 'Y'
 - For rooms with toilet: hostel_rooms.toilet = 'Y'
-- For female/male rooms and beds (no direct gender column on rooms/beds):
-  - A room is occupied by female trainees if it has an active allotment where users.gender = 'F' and h_status = 1 and (out_date IS NULL OR out_date >= CURDATE()).
-  - Whenever referencing user columns (like users.gender) in a query on hostel_masters, you MUST join the users table on users.id = hostel_masters.user_id.
-- To prevent row multiplication / double-counting:
-  - NEVER join hostel_buildings and hostel_rooms when performing SUM(room_beds) or SUM(bed_capacity). Summing room_beds should be done directly on hostel_rooms. Summing bed_capacity should be done directly on hostel_buildings. Joining them in the same query multiplies the capacities.
-  - When counting available/vacant rooms or beds, DO NOT JOIN hostel_masters in the main FROM clause. Instead, select from hostel_rooms and use NOT IN (subquery on hostel_masters) or LEFT JOIN with a WHERE hm.id IS NULL condition. Joining hostel_masters directly in the FROM clause will incorrectly exclude completely empty rooms that have no history in hostel_masters.
-  - Avoid using undefined table aliases. For example, do not use `hr.room_beds` or `hr.status` unless `hostel_rooms hr` (or `hostel_rooms AS hr`) is defined in the same subquery or FROM clause.
-  - When retrieving multiple independent summaries/aggregates (e.g. counting total beds and total rooms and available rooms by gender in one query), select them as independent subqueries without an outer FROM clause (e.g., SELECT (SELECT SUM(...) ...) AS total_beds, (SELECT COUNT(...) ...) AS total_rooms). Do not add a FROM clause or table aliases to the outer SELECT statement.
-- Use these exact column aliases for gender-wise summaries, using these exact subquery definitions:
-  - `total_beds` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id})
-  - `vacant_beds_for_males` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})) - (SELECT COUNT(*) FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})
-  - `vacant_beds_for_females` -> (SELECT SUM(room_beds) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})) - (SELECT COUNT(*) FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id})
-  - `total_rooms` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id})
-  - `vacant_rooms_for_males` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id}))
-  - `vacant_rooms_for_females` -> (SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND office_id = {office_id} AND id NOT IN (SELECT DISTINCT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'M' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE()) AND hostel_masters.office_id = {office_id}))
-- Every single subquery (including subqueries inside SELECT, WHERE, IN, or NOT IN clauses) MUST include its own `office_id = {office_id}` condition on every table that has an `office_id` column. Never omit the office filter from any subquery.
+- For female/male rooms (no direct gender column on rooms):
+  - A room is occupied by female trainees if it has an active allotment (h_status = 1 and (out_date IS NULL OR out_date >= CURDATE())) where the user is female (users.gender = 'F').
+  - Active rooms available for female trainees (rooms NOT occupied by females): count of active rooms (hostel_rooms.status = 1) that are NOT occupied by female trainees. E.g., SELECT COUNT(*) FROM hostel_rooms WHERE status = 1 AND id NOT IN (SELECT room_id FROM hostel_masters JOIN users ON users.id = hostel_masters.user_id WHERE users.gender = 'F' AND h_status = 1 AND (out_date IS NULL OR out_date >= CURDATE())).
+  - Similar logic applies for males using gender = 'M'.
+- When counting available/vacant rooms or beds, DO NOT JOIN hostel_masters in the main FROM clause. Instead, select from hostel_rooms and use NOT IN (subquery on hostel_masters) or LEFT JOIN with a WHERE hm.id IS NULL condition. Joining hostel_masters directly in the FROM clause will incorrectly exclude completely empty rooms that have no history in hostel_masters.
 
 Schema:
 {get_dynamic_schemas(user_question, HOSTEL_SCHEMA, "hostel")}
@@ -699,7 +698,7 @@ SQL:
 
 
 def generate_hostel_sql(user_question: str, office_id: int) -> str:
-    """Call Groq with the hostel schema prompt and return cleaned SQL."""
+    """Call the configured LLM with the hostel schema prompt and return cleaned SQL."""
     prompt = build_hostel_sql_prompt(user_question, office_id)
     return _generate_sql(prompt, "Hostel")
 
@@ -720,7 +719,7 @@ def run_hostel_sql_fallback(user_question: str, office_id: int) -> dict:
 # ===========================================================================
 
 def build_course_sql_prompt(user_question: str, office_id: int) -> str:
-    """Build a Groq prompt for Course module — only schema, never credentials."""
+    """Build an LLM prompt for Course module — only schema, never credentials."""
     return f"""You are a MySQL SQL generator for TRMS Course module.
 
 Generate exactly one SQL query.
@@ -781,7 +780,7 @@ SQL:
 
 
 def generate_course_sql(user_question: str, office_id: int) -> str:
-    """Call Groq with the course schema prompt and return cleaned SQL."""
+    """Call the configured LLM with the course schema prompt and return cleaned SQL."""
     prompt = build_course_sql_prompt(user_question, office_id)
     return _generate_sql(prompt, "Course")
 

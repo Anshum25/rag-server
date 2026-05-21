@@ -8,7 +8,7 @@ from app.services.access_policy import (
     has_module_access,
     normalize_role,
 )
-from app.services.groq_service import classify_query, format_answer, generate_answer, refine_question
+from app.services.llm_service import classify_query, format_answer, generate_answer, refine_question
 from app.services.smart_query_service import get_relevant_templates, execute_smart_query
 from app.services.embedder import get_embedding
 from app.services.qdrant_service import search_data_filtered
@@ -792,7 +792,7 @@ def chat(request: ChatRequest, http_request: Request = None):
                     followup_signals = ["which course", "which exam", "please specify", "please provide", "which trainee", "can you provide", "please select", "select one"]
                     if any(sig in last_answer for sig in followup_signals):
                         is_followup = True
-                
+
                 if not is_followup:
                     qdrant_answer = _qdrant_fallback(user_message, office_id, user_role)
                     if qdrant_answer:
